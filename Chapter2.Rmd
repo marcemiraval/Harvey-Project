@@ -1,0 +1,128 @@
+---
+title: "Weather Spotter Reports"
+author: "Marcela Suarez"
+date: "March 24, 2018"
+output: html_document
+---
+
+```{r load_packages, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(htmltools)
+library(lubridate)
+```
+
+```{r load_data, include=FALSE, echo=FALSE}
+storm2012 <- read_csv("stormdata_2012.csv")
+storm2013 <- read_csv("stormdata_2013.csv")
+sandyTweets <- read_csv("Sandy_Clean.csv")
+coloTweets <- read_csv("Colorado_Clean.csv")
+```
+
+
+```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
+storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
+
+states_sandySpot <- c("MARYLAND", "DELAWARE", "NEW JERSEY", "NEW YORK", "CONNECTICUT",
+                    "MASSACHUSETTS", "RHODE ISLAND", "NORTH CAROLINA", "VIRGINIA",
+                    "WEST VIRGINIA", "OHIO", "PENNSYLVANIA", "NEW HAMPSHIRE")
+
+sandySpot <- storm2012 %>%
+  select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
+         CZ_TIMEZONE, EPISODE_NARRATIVE, EVENT_NARRATIVE, dateTime) %>% 
+  filter(!is.na(BEGIN_LAT)) %>%
+  filter(STATE %in% states_sandySpot) %>% 
+  filter(dateTime >= "2012-10-29 00:00:00 UTC" & dateTime < "2012-11-01 00:00:00 UTC")
+```
+
+```{r filter_spotter_colo, include=FALSE, echo=FALSE}
+storm2013$dateTime <- mdy_hms(storm2013$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
+
+coloSpot <- storm2013 %>%
+  select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
+         CZ_TIMEZONE, EPISODE_NARRATIVE, EVENT_NARRATIVE, dateTime) %>% 
+  filter(!is.na(BEGIN_LAT)) %>%
+  filter(STATE == "COLORADO") %>% 
+  filter(dateTime >= "2013-09-01 00:00:00 UTC" & dateTime < "2013-10-01 00:00:00 UTC")
+
+```
+
+
+```{r filter_Twitter_sandy, include=FALSE, echo=FALSE}
+sandyTweets$created_at <- ymd_hms(sandyTweets$created_at, tz ="UTC")# Format date/time
+
+states_sandyTwi <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
+                    "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
+                    "West Virginia", "Ohio", "Pennsylvania", "New Hampshire")
+
+sandy_states <- sandyTweets %>% 
+  select(lat = latitude, 
+         lon = longitude, 
+         create_time = created_at, 
+         state = c_state,
+         tweet = text) %>% 
+  filter(state %in% states_sandyTwi) %>%
+  filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
+```
+
+
+```{r filter_Twitter_colo, include=FALSE, echo=FALSE}
+coloTweets$created_at <- ymd_hms(coloTweets$created_at, tz ="UTC")# Format date/time
+
+coloradoT <- coloTweets %>% 
+  select(lat = latitude, 
+         lon = longitude, 
+         create_time = created_at, 
+         state = c_state,
+         tweet = t_text) %>% 
+  filter(state == "Colorado") %>%
+  filter(create_time >= "2013-09-01 00:00:00 UTC" & create_time < "2013-10-01 00:00:00 UTC")
+```
+
+
+```{r map_colo_reports, echo=FALSE}
+coloSpot_sf <-  st_as_sf(coloSpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
+coloTweets_sf <-  st_as_sf(coloradoT, coords = c("lon", "lat"), crs = 4326)
+
+
+coloReportsMap <- leaflet(coloTweets_sf) %>% 
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
+      addCircles(weight = 3, radius=40,
+                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(tweet)) %>%
+      addCircles(data = coloSpot_sf, weight = 3, radius=40,
+                 color="red", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
+      setView(lng = -105.9, lat = 39.3, zoom = 8)
+
+coloReportsMap
+
+htmlwidgets::saveWidget(coloReportsMap, file = "coloReportsMap.html")
+```
+
+
+```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
+# WITH EVAL falsE the map is not loading
+
+sandySpot_sf <-  st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
+sandyTweets_sf <-  st_as_sf(sandy_states, coords = c("lon", "lat"), crs = 4326)
+
+
+SandyReportsMap <- leaflet(sandyTweets_sf) %>% 
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
+      addCircles(weight = 3, radius=40,
+                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(tweet)) %>%
+      addCircles(data = sandySpot_sf, weight = 3, radius=40,
+                 color="red", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
+      setView(lng = -74.9, lat = 40.4, zoom = 6)
+
+SandyReportsMap
+
+htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
+```
+
