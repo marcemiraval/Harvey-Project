@@ -1,7 +1,6 @@
 ---
 title: "Weather Spotter Reports"
 author: "Marcela Suarez"
-date: "March 24, 2018"
 output: html_document
 ---
 
@@ -11,16 +10,27 @@ library(sf)
 library(leaflet)
 library(htmltools)
 library(lubridate)
+library(maptools)
+
 ```
 
-```{r load_data, include=FALSE, echo=FALSE}
-storm2012 <- read_csv("stormdata_2012.csv")
-storm2013 <- read_csv("stormdata_2013.csv")
+## 1. Load Data
+```{r load_data_spotters, include=FALSE, echo=FALSE}
+storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
+storm2013 <- read_csv("~/Coding/Data/stormdata_2013.csv")
+```
+
+```{r load_data_Twitter, include=FALSE, echo=FALSE}
 sandyTweets <- read_csv("Sandy_Clean.csv")
 coloTweets <- read_csv("Colorado_Clean.csv")
 ```
 
+```{r load_spatial_data, include=FALSE, echo=FALSE}
+us_states <- st_read(dsn = "~/Coding/Data", layer = "tl_2017_us_state") # Read shapefile
+```
 
+
+##2. Prepare datasets. Filter Data for States affected by Sandy.
 ```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
 storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
 
@@ -48,11 +58,10 @@ coloSpot <- storm2013 %>%
 
 ```
 
-
 ```{r filter_Twitter_sandy, include=FALSE, echo=FALSE}
 sandyTweets$created_at <- ymd_hms(sandyTweets$created_at, tz ="UTC")# Format date/time
 
-states_sandyTwi <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
+states_sandy <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
                     "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
                     "West Virginia", "Ohio", "Pennsylvania", "New Hampshire")
 
@@ -62,7 +71,7 @@ sandy_states <- sandyTweets %>%
          create_time = created_at, 
          state = c_state,
          tweet = text) %>% 
-  filter(state %in% states_sandyTwi) %>%
+  filter(state %in% states_sandy) %>%
   filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
 ```
 
@@ -78,6 +87,27 @@ coloradoT <- coloTweets %>%
          tweet = t_text) %>% 
   filter(state == "Colorado") %>%
   filter(create_time >= "2013-09-01 00:00:00 UTC" & create_time < "2013-10-01 00:00:00 UTC")
+```
+
+```{r create_hexagonal_grid, echo=FALSE}
+
+sandy_states <- us_states %>% 
+  filter(NAME %in% states_sandy)
+  
+# plot(st_geometry(sandy_states)) #Just checking
+
+sf_sandy_states <-  as(sandy_states, "Spatial")
+
+sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=400, type="hexagonal"))
+plot(sp_hex)
+
+sf_hex <- st_as_sf(sp_hex)
+ggplot()+
+  geom_sf(data = sandy_states) +
+  geom_sf(data = sf_hex) 
+  
+
+
 ```
 
 
