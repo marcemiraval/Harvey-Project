@@ -11,7 +11,7 @@ library(leaflet)
 library(htmltools)
 library(lubridate)
 library(maptools)
-
+library(ggmap)
 ```
 
 ## 1. Load Data
@@ -63,7 +63,7 @@ sandyTweets$created_at <- ymd_hms(sandyTweets$created_at, tz ="UTC")# Format dat
 
 states_sandy <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
                     "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
-                    "West Virginia", "Ohio", "Pennsylvania", "New Hampshire")
+                    "West Virginia", "Ohio", "Pennsylvania", "New Hampshire", "District of Columbia") # ha! had to include WDC for the map.
 
 sandy_states <- sandyTweets %>% 
   select(lat = latitude, 
@@ -93,19 +93,27 @@ coloradoT <- coloTweets %>%
 
 sandy_states <- us_states %>% 
   filter(NAME %in% states_sandy)
-  
+
 # plot(st_geometry(sandy_states)) #Just checking
 
 sf_sandy_states <-  as(sandy_states, "Spatial")
 
-sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=400, type="hexagonal"))
-plot(sp_hex)
+sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
+
+sandy_boundary <- st_union(sandy_states)
 
 sf_hex <- st_as_sf(sp_hex)
-ggplot()+
-  geom_sf(data = sandy_states) +
-  geom_sf(data = sf_hex) 
-  
+boundary <- st_sf(a = 1, geom =sandy_boundary)
+
+ggplot(sf_hex)+
+  geom_sf(data = boundary, colour = "#1c9099", fill = "#a6bddb", alpha = 0.4) +
+  geom_sf(fill = "NA")   +
+  coord_sf(datum = NA) + # Supposedly this is to avoid drawing graticule
+  theme(panel.grid = element_blank(),
+        line = element_blank(),
+        rect = element_blank(),
+        text = element_blank())
+
 
 
 ```
