@@ -14,8 +14,7 @@ library(maptools)
 library(ggmap)
 ```
 
-## 1. Load Data
-```{r load_data_spotters, include=FALSE, echo=FALSE}
+```{r load_data_spotters, include=FALSE, echo=TRUE}
 storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
 storm2013 <- read_csv("~/Coding/Data/stormdata_2013.csv")
 ```
@@ -30,13 +29,13 @@ us_states <- st_read(dsn = "~/Coding/Data", layer = "tl_2017_us_state") # Read s
 ```
 
 
-##2. Prepare datasets. Filter Data for States affected by Sandy.
+
 ```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
 storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
 
 states_sandySpot <- c("MARYLAND", "DELAWARE", "NEW JERSEY", "NEW YORK", "CONNECTICUT",
                     "MASSACHUSETTS", "RHODE ISLAND", "NORTH CAROLINA", "VIRGINIA",
-                    "WEST VIRGINIA", "OHIO", "PENNSYLVANIA", "NEW HAMPSHIRE")
+                    "WEST VIRGINIA", "OHIO", "PENNSYLVANIA", "NEW HAMPSHIRE", "DISTRICT OF COLUMBIA")
 
 sandySpot <- storm2012 %>%
   select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
@@ -89,7 +88,7 @@ coloradoT <- coloTweets %>%
   filter(create_time >= "2013-09-01 00:00:00 UTC" & create_time < "2013-10-01 00:00:00 UTC")
 ```
 
-```{r create_hexagonal_grid, echo=FALSE}
+```{r create_hexagonal_grid}
 
 sandy_states <- us_states %>% 
   filter(NAME %in% states_sandy)
@@ -113,9 +112,25 @@ ggplot(sf_hex)+
         line = element_blank(),
         rect = element_blank(),
         text = element_blank())
+```
 
+```{r CRS_set_and_transform}
+st_crs(boundary)
 
+sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LAT","BEGIN_LON"))
 
+### Just the CRS conversion in two steps###
+# sandySpot_sf <- sandySpot_sf %>% 
+#   st_set_crs(4326)
+# st_crs(sandySpot_sf)
+# sandySpotWGS84 <- sandySpot_sf %>% 
+#   st_transform(st_crs(boundary))
+# st_crs(sandySpotWGS84)
+
+sandySpot_sf <- sandySpot_sf %>% 
+  st_set_crs(4326) %>% 
+  st_transform(st_crs(boundary))
+st_crs(sandySpot_sf)
 ```
 
 
