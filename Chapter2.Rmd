@@ -11,7 +11,7 @@ library(leaflet)
 library(htmltools)
 library(lubridate)
 library(maptools)
-
+library(data.table)
 ```
 
 ```{r load_data_spotters, include=FALSE, echo=TRUE}
@@ -116,7 +116,7 @@ ggplot(sf_hex)+
 ```{r CRS_set_and_transform}
 st_crs(boundary)
 
-sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LAT","BEGIN_LON"))
+sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT")) #Ha! coords = ("x","y")
 
 ### Just the CRS conversion in two steps###
 # sandySpot_sf <- sandySpot_sf %>% 
@@ -135,7 +135,7 @@ sf_hex <- sf_hex %>%
   st_transform(st_crs(boundary))
 ```
 
-```{r}
+```{r project_data_planarCS}
 # EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
 projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
 
@@ -146,20 +146,26 @@ sf_hex <- sf_hex %>%
   st_transform(projSandy)
 ```
 
-```{r}
-#sandySpot_sf$hex <- over(sandySpot_sf, sp_hex)$id # Previous Method
+```{r join_hex_and_spoReports}
 sf_hex$group <- 1:nrow(sf_hex)
 
-# Funciona
-test1 <- st_join(sandySpot_sf, sf_hex) %>% #st_intersects is by the function by default here.
-  mutate(id = strtrim(row.names(.), 1)) %>% # Pero esto no lo entiendo debe haber dentro de las funciones una que me permita traer el atributo que quiero del hexagono. Creo que la cosa está entre dpylr y sf. Ver aquí: https://github.com/r-spatial/sf/issues/429
-  group_by(id)
+spoReports <- st_join(sandySpot_sf, sf_hex)%>%
+  group_by(group)
 
-test2 <- st_join(sf_hex, sandySpot_sf)
+hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
+  group_by(group) %>%
+  summarise(total = sum(!is.na(EVENT_ID)))
+  
+```
+
+```{r export_shps}
+# Exporting shapefiles to test in QGIS
+st_write(sf_hex, "hex.shp", delete_layer = TRUE)
+st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
 
-```{r map_colo_reports, echo=FALSE}
+```{r map_colo_reports, echo=FALSE, eval=FALSE}
 coloSpot_sf <-  st_as_sf(coloSpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
 coloTweets_sf <-  st_as_sf(coloradoT, coords = c("lon", "lat"), crs = 4326)
 
