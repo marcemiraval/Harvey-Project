@@ -103,7 +103,7 @@ sf_hex <- st_as_sf(sp_hex)
 
 boundary <- st_sf(a = 1, geom =sandy_boundary)
 
-ggplot(sf_hex)+
+# ggplot(sf_hex)+
   geom_sf(data = boundary, colour = "#1c9099", fill = "#a6bddb", alpha = 0.4) +
   geom_sf(fill = "NA")   +
   coord_sf(datum = NA) + # Supposedly this is to avoid drawing graticule
@@ -111,12 +111,15 @@ ggplot(sf_hex)+
         line = element_blank(),
         rect = element_blank(),
         text = element_blank())
+
+st_crs(sandy_states)
 ```
 
 ```{r CRS_set_and_transform}
 st_crs(boundary)
 
-sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT")) #Ha! coords = ("x","y")
+sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326) #Ha! coords = ("x","y"). Also defined in datum WGS84
+st_crs(sandySpot_sf)
 
 ### Just the CRS conversion in two steps###
 # sandySpot_sf <- sandySpot_sf %>% 
@@ -126,16 +129,18 @@ sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT")) #Ha! c
 #   st_transform(st_crs(boundary))
 # st_crs(sandySpotWGS84)
 
-sandySpot_sf <- sandySpot_sf %>% 
-  st_set_crs(4326) %>% 
-  st_transform(st_crs(boundary))
-st_crs(sandySpot_sf)
+# sandySpot_sf <- sandySpot_sf %>% 
+#   st_transform(st_crs(boundary))
+# st_crs(sandySpot_sf)
 
+# I ended up doing the opposite. Now everything is in datum WGS84
 sf_hex <- sf_hex %>%
-  st_transform(st_crs(boundary))
+  st_transform(st_crs(sandySpot_sf))
+st_crs(sf_hex)
 ```
 
-```{r project_data_planarCS}
+```{r project_data_planarCS eval = FALSE}
+# In case I need to project to a planar system. Ask this option
 # EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
 projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
 
@@ -155,15 +160,14 @@ spoReports <- st_join(sandySpot_sf, sf_hex)%>%
 hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID)))
-  
 ```
 
-```{r export_shps}
+```{r export_shps eval = FALSE}
 # Exporting shapefiles to test in QGIS
+# Just turn eval to TRUE in case I need it
 st_write(sf_hex, "hex.shp", delete_layer = TRUE)
 st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
-
 
 ```{r map_colo_reports, echo=FALSE, eval=FALSE}
 coloSpot_sf <-  st_as_sf(coloSpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
@@ -186,13 +190,10 @@ coloReportsMap
 htmlwidgets::saveWidget(coloReportsMap, file = "coloReportsMap.html")
 ```
 
-
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
 # WITH EVAL falsE the map is not loading
 
-sandySpot_sf <-  st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
-sandyTweets_sf <-  st_as_sf(sandy_states, coords = c("lon", "lat"), crs = 4326)
-
+sandyTweets_sf <-  st_as_sf(sandy_states, coords = c("lon", "lat"))
 
 SandyReportsMap <- leaflet(sandyTweets_sf) %>% 
   addTiles()  %>%
@@ -208,5 +209,28 @@ SandyReportsMap <- leaflet(sandyTweets_sf) %>%
 SandyReportsMap
 
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
+```
+
+```{r mapHexSandy_spotters, echo=FALSE}
+bins <- c(0, 1, 2, 3, 4, 5, 6)
+pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
+
+SandyHexMap <- leaflet(hexWithSpoReports) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~pal(total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7) %>%
+  addCircles(data = sandySpot_sf, weight = 3, radius=40,
+                 color="purple", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(EVENT_NARRATIVE)) %>%
+  addLegend(pal = pal, values = ~total, opacity = 0.7, title = NULL,
+  position = "bottomright")
+
+htmlwidgets::saveWidget(SandyHexMap, file = "SandyHexMap.html")
+
 ```
 
