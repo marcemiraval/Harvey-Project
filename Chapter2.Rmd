@@ -1,5 +1,5 @@
 ---
-title: "Weather Spotter Reports"
+title: "General-public reports about Hurricane Sandy"
 author: "Marcela Suarez"
 output: html_document
 ---
@@ -16,12 +16,12 @@ library(data.table)
 
 ```{r load_data_spotters, include=FALSE, echo=TRUE}
 storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
-storm2013 <- read_csv("~/Coding/Data/stormdata_2013.csv")
+# storm2013 <- read_csv("~/Coding/Data/stormdata_2013.csv")
 ```
 
 ```{r load_data_Twitter, include=FALSE, echo=FALSE}
 sandyTweets <- read_csv("Sandy_Clean.csv")
-coloTweets <- read_csv("Colorado_Clean.csv")
+# coloTweets <- read_csv("Colorado_Clean.csv")
 ```
 
 ```{r load_spatial_data, include=FALSE, echo=FALSE}
@@ -43,7 +43,7 @@ sandySpot <- storm2012 %>%
   filter(dateTime >= "2012-10-29 00:00:00 UTC" & dateTime < "2012-11-01 00:00:00 UTC")
 ```
 
-```{r filter_spotter_colo, include=FALSE, echo=FALSE}
+```{r filter_spotter_colo, include=FALSE, echo=FALSE, eval= FALSE}
 storm2013$dateTime <- mdy_hms(storm2013$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
 
 coloSpot <- storm2013 %>%
@@ -62,18 +62,19 @@ states_sandy <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut
                     "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
                     "West Virginia", "Ohio", "Pennsylvania", "New Hampshire", "District of Columbia") # ha! had to include WDC for the map.
 
-sandy_states <- sandyTweets %>% 
+sandyTweetsIn <- sandyTweets %>% 
   select(lat = latitude, 
          lon = longitude, 
          create_time = created_at, 
          state = c_state,
+         id = id,
          tweet = text) %>% 
   filter(state %in% states_sandy) %>%
   filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
 ```
 
 
-```{r filter_Twitter_colo, include=FALSE, echo=FALSE}
+```{r filter_Twitter_colo, include=FALSE, echo=FALSE, eval= FALSE}
 coloTweets$created_at <- ymd_hms(coloTweets$created_at, tz ="UTC")# Format date/time
 
 coloradoT <- coloTweets %>% 
@@ -90,49 +91,23 @@ coloradoT <- coloTweets %>%
 
 sandy_states <- us_states %>% 
   filter(NAME %in% states_sandy)
+sandy_boundary <- st_union(sandy_states) # spatial merge to create boundary
 
-# plot(st_geometry(sandy_states)) #Just checking
-
-sf_sandy_states <-  as(sandy_states, "Spatial")
-
+sf_sandy_states <-  as(sandy_boundary, "Spatial")
 sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
-
-sandy_boundary <- st_union(sandy_states)
-
 sf_hex <- st_as_sf(sp_hex)
 
-boundary <- st_sf(a = 1, geom =sandy_boundary)
 
-# ggplot(sf_hex)+
-  geom_sf(data = boundary, colour = "#1c9099", fill = "#a6bddb", alpha = 0.4) +
-  geom_sf(fill = "NA")   +
-  coord_sf(datum = NA) + # Supposedly this is to avoid drawing graticule
-  theme(panel.grid = element_blank(),
-        line = element_blank(),
-        rect = element_blank(),
-        text = element_blank())
-
-st_crs(sandy_states)
 ```
 
 ```{r CRS_set_and_transform}
-st_crs(boundary)
+st_crs(sandy_boundary)
+st_crs(sandy_states)
 
-sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326) #Ha! coords = ("x","y"). Also defined in datum WGS84
-st_crs(sandySpot_sf)
+sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326) #Ha! coords = ("x","y"). Also defined in datum WGS84. Setting CRS could here or add %>% st_set_crs(4326)
 
-### Just the CRS conversion in two steps###
-# sandySpot_sf <- sandySpot_sf %>% 
-#   st_set_crs(4326)
-# st_crs(sandySpot_sf)
-# sandySpotWGS84 <- sandySpot_sf %>% 
-#   st_transform(st_crs(boundary))
-# st_crs(sandySpotWGS84)
-
-# sandySpot_sf <- sandySpot_sf %>% 
-#   st_transform(st_crs(boundary))
-# st_crs(sandySpot_sf)
-
+sandyTweetsIn_sf <- st_as_sf(sandyTweetsIn, coords = c("lon", "lat"), crs = 4326)
+  
 # I ended up doing the opposite. Now everything is in datum WGS84
 sf_hex <- sf_hex %>%
   st_transform(st_crs(sandySpot_sf))
@@ -151,21 +126,31 @@ sf_hex <- sf_hex %>%
   st_transform(projSandy)
 ```
 
-```{r join_hex_and_spoReports}
+```{r join_hex_and_Reports}
 sf_hex$group <- 1:nrow(sf_hex)
 
-spoReports <- st_join(sandySpot_sf, sf_hex)%>%
+#### Join with Spotters ######
+spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
   group_by(group)
 
 hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID)))
+
+#### Join with Tweets ######
+TweetReports <- st_join(sandyTweetsIn_sf, sf_hex) %>%  # Not sure yet when I need this.
+  group_by(group)
+
+hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>% 
+  group_by(group) %>% 
+  summarise(total = sum(!is.na(id)))
 ```
 
 ```{r export_shps eval = FALSE}
 # Exporting shapefiles to test in QGIS
 # Just turn eval to TRUE in case I need it
 st_write(sf_hex, "hex.shp", delete_layer = TRUE)
+st_write(hexWithTweets, "hexWithTweets.shp", delete_layer = TRUE)
 st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
@@ -191,11 +176,9 @@ htmlwidgets::saveWidget(coloReportsMap, file = "coloReportsMap.html")
 ```
 
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
-# WITH EVAL falsE the map is not loading
+# With EVAL false the map is not loading
 
-sandyTweets_sf <-  st_as_sf(sandy_states, coords = c("lon", "lat"))
-
-SandyReportsMap <- leaflet(sandyTweets_sf) %>% 
+SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>% 
   addTiles()  %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
       addCircles(weight = 3, radius=40,
@@ -231,6 +214,24 @@ SandyHexMap <- leaflet(hexWithSpoReports) %>%
   position = "bottomright")
 
 htmlwidgets::saveWidget(SandyHexMap, file = "SandyHexMap.html")
+```
 
+```{r mapHexSandy_Tweets, echo=FALSE}
+binsTweets <- c(0, 1, 20, 100, 170, 322, 14500)
+palTweets <- colorBin("YlOrRd", domain = hexWithTweets$total, bins = binsTweets)
+
+SandyHexTweetMap <- leaflet(hexWithTweets) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~palTweets(total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7) %>%
+  addLegend(pal = palTweets, values = ~total, opacity = 0.7, title = NULL,
+  position = "bottomright")
+
+htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
 
