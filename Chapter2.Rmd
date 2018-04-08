@@ -1,8 +1,10 @@
 ---
-title: "General-public reports about Hurricane Sandy"
+title: "General-Public Reports About Hurricane Sandy"
 author: "Marcela Suarez"
-output: html_document
+output:
+  html_document: default
 ---
+
 
 ```{r load_packages, include=FALSE, echo=FALSE}
 library(tidyverse)
@@ -12,21 +14,43 @@ library(htmltools)
 library(lubridate)
 library(maptools)
 library(data.table)
+library(markdown)
 ```
+# Data Preparation
+
+This study relies on two main datasets. One corresponds to Spotters' reports extracted 
+from the historic Storm Event Database from NOAA, which is available online. The second 
+corresponds to geotagged Tweets collected and provided by the DOLLY project at the University
+of Kentucky. Tweets contained in this dataset were sent from within the United States between
+October 24 and October 31 of 2012 with explicit geographic information as latitude and
+longitude coordinates.
 
 ```{r load_data_spotters, include=FALSE, echo=TRUE}
 storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
-# storm2013 <- read_csv("~/Coding/Data/stormdata_2013.csv")
 ```
 
 ```{r load_data_Twitter, include=FALSE, echo=FALSE}
 sandyTweets <- read_csv("Sandy_Clean.csv")
-# coloTweets <- read_csv("Colorado_Clean.csv")
 ```
+
+Spatial information representing state boundaries was downloaded in shapefile format from the
+United States Census Bureau website. Polygons representing state boundaries by 2017 are used 
+in this study.
+
 
 ```{r load_spatial_data, include=FALSE, echo=FALSE}
 us_states <- st_read(dsn = "~/Coding/Data", layer = "tl_2017_us_state") # Read shapefile
 ```
+
+Based on this spatial dataset, a polygon representing the states affected by Hurricane Sandy 
+was created. According to the SHELDUS database, the following states were affected by the
+hurricane: Maryland, Delaware, New Jersey, New York, Connecticut, Massachusetts, Rhode Island,
+North Carolina, Virginia, West Virginia, Ohio, Pennsylvania, New Hampshire and District of Columbia.
+
+Based on this information, NWS reports and Tweets sent from these states were selected. We also filtered
+only Tweets and reports sent within the two days with more impact reported (Oct/29/2012 and Oct/30/2012), 
+which also were the days with reports from both data sources. After filtering, the NWS datasets contains
+only 115 reports and the Twitter dataset contains 74807 tweets. 
 
 ```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
 storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
@@ -41,18 +65,6 @@ sandySpot <- storm2012 %>%
   filter(!is.na(BEGIN_LAT)) %>%
   filter(STATE %in% states_sandySpot) %>% 
   filter(dateTime >= "2012-10-29 00:00:00 UTC" & dateTime < "2012-11-01 00:00:00 UTC")
-```
-
-```{r filter_spotter_colo, include=FALSE, echo=FALSE, eval= FALSE}
-storm2013$dateTime <- mdy_hms(storm2013$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
-
-coloSpot <- storm2013 %>%
-  select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
-         CZ_TIMEZONE, EPISODE_NARRATIVE, EVENT_NARRATIVE, dateTime) %>% 
-  filter(!is.na(BEGIN_LAT)) %>%
-  filter(STATE == "COLORADO") %>% 
-  filter(dateTime >= "2013-09-01 00:00:00 UTC" & dateTime < "2013-10-01 00:00:00 UTC")
-
 ```
 
 ```{r filter_Twitter_sandy, include=FALSE, echo=FALSE}
@@ -73,22 +85,17 @@ sandyTweetsIn <- sandyTweets %>%
   filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
 ```
 
+# Data Analysis
 
-```{r filter_Twitter_colo, include=FALSE, echo=FALSE, eval= FALSE}
-coloTweets$created_at <- ymd_hms(coloTweets$created_at, tz ="UTC")# Format date/time
+## Hexagonal Grid Preparation
 
-coloradoT <- coloTweets %>% 
-  select(lat = latitude, 
-         lon = longitude, 
-         create_time = created_at, 
-         state = c_state,
-         tweet = t_text) %>% 
-  filter(state == "Colorado") %>%
-  filter(create_time >= "2013-09-01 00:00:00 UTC" & create_time < "2013-10-01 00:00:00 UTC")
-```
+1. Set Coordinate Reference System. All information in/or transformed to use NAD83 as datum.
 
-```{r create_hexagonal_grid}
+2. Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
+Choose the cell size that has the maximum variance.
 
+
+```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
 sandy_states <- us_states %>% 
   filter(NAME %in% states_sandy)
 sandy_boundary <- st_union(sandy_states) # spatial merge to create boundary
@@ -96,11 +103,9 @@ sandy_boundary <- st_union(sandy_states) # spatial merge to create boundary
 sf_sandy_states <-  as(sandy_boundary, "Spatial")
 sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
 sf_hex <- st_as_sf(sp_hex)
-
-
 ```
 
-```{r CRS_set_and_transform}
+```{r CRS_set_and_transform, include=FALSE, echo=FALSE}
 st_crs(sandy_boundary)
 st_crs(sandy_states)
 
@@ -114,7 +119,7 @@ sf_hex <- sf_hex %>%
 st_crs(sf_hex)
 ```
 
-```{r project_data_planarCS eval = FALSE}
+```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
 # In case I need to project to a planar system. Ask this option
 # EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
 projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
@@ -126,7 +131,7 @@ sf_hex <- sf_hex %>%
   st_transform(projSandy)
 ```
 
-```{r join_hex_and_Reports}
+```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
 sf_hex$group <- 1:nrow(sf_hex)
 
 #### Join with Spotters ######
@@ -141,12 +146,13 @@ hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>%
 TweetReports <- st_join(sandyTweetsIn_sf, sf_hex) %>%  # Not sure yet when I need this.
   group_by(group)
 
+# Computing the number of hurricane Sandy related Tweets by hexagon
 hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>% 
   group_by(group) %>% 
   summarise(total = sum(!is.na(id)))
 ```
 
-```{r export_shps eval = FALSE}
+```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test in QGIS
 # Just turn eval to TRUE in case I need it
 st_write(sf_hex, "hex.shp", delete_layer = TRUE)
@@ -194,11 +200,15 @@ SandyReportsMap
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
-```{r mapHexSandy_spotters, echo=FALSE}
-bins <- c(0, 1, 2, 3, 4, 5, 6)
+***
+
+###### Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
+
+```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
+bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
 
-SandyHexMap <- leaflet(hexWithSpoReports) %>%
+SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addPolygons(fillColor = ~pal(total),
@@ -206,18 +216,24 @@ SandyHexMap <- leaflet(hexWithSpoReports) %>%
               opacity = 1,
               color = "white",
               dashArray = "2",
-              fillOpacity = 0.7) %>%
-  addCircles(data = sandySpot_sf, weight = 3, radius=40,
-                 color="purple", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(EVENT_NARRATIVE)) %>%
-  addLegend(pal = pal, values = ~total, opacity = 0.7, title = NULL,
-  position = "bottomright")
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
+  addLegend(pal = pal, 
+            values = ~total, 
+            opacity = 0.7, 
+            title = "Number of NWS reports",
+            position = "bottomright")
 
-htmlwidgets::saveWidget(SandyHexMap, file = "SandyHexMap.html")
+SandyHexSpotMap
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 
-```{r mapHexSandy_Tweets, echo=FALSE}
-binsTweets <- c(0, 1, 20, 100, 170, 322, 14500)
+*** 
+
+###### Aggregation to hexagons for tweets. 800 hexagons covering area of study.
+
+```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE}
+binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 22000)
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$total, bins = binsTweets)
 
 SandyHexTweetMap <- leaflet(hexWithTweets) %>%
@@ -228,10 +244,15 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
               opacity = 1,
               color = "white",
               dashArray = "2",
-              fillOpacity = 0.7) %>%
-  addLegend(pal = palTweets, values = ~total, opacity = 0.7, title = NULL,
-  position = "bottomright")
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
+  addLegend(pal = palTweets, 
+            values = ~total, 
+            opacity = 0.7, 
+            title = "Number of Tweets",
+            position = "bottomright")
 
+SandyHexTweetMap
 htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
 
