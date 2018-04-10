@@ -131,6 +131,8 @@ sf_hex <- sf_hex %>%
   st_transform(projSandy)
 ```
 
+I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
+
 ```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
 sf_hex$group <- 1:nrow(sf_hex)
 
@@ -140,22 +142,22 @@ spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
 
 hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
   group_by(group) %>%
-  summarise(total = sum(!is.na(EVENT_ID)))
-
-#### Join with Tweets ######
-TweetReports <- st_join(sandyTweetsIn_sf, sf_hex) %>%  # Not sure yet when I need this.
-  group_by(group)
+  summarise(total = sum(!is.na(EVENT_ID))) %>% 
+  mutate(totRatio = total/sum(total))# Add column that normalize totals
 
 # Computing the number of hurricane Sandy related Tweets by hexagon
 hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>% 
   group_by(group) %>% 
-  summarise(total = sum(!is.na(id)))
+  summarise(total = sum(!is.na(id))) %>% 
+  mutate(totRatio = total/sum(total))
+
+### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND TH TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
 ```
 
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test in QGIS
 # Just turn eval to TRUE in case I need it
-st_write(sf_hex, "hex.shp", delete_layer = TRUE)
+st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE)
 st_write(hexWithTweets, "hexWithTweets.shp", delete_layer = TRUE)
 st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
@@ -203,6 +205,33 @@ htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ***
 
 ###### Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
+
+```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
+bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
+pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
+
+SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~pal(total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
+  addLegend(pal = pal, 
+            values = ~total, 
+            opacity = 0.7, 
+            title = "Number of NWS reports",
+            position = "bottomright")
+
+SandyHexSpotMap
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+```
+***
+
+###### Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
 
 ```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
