@@ -96,11 +96,12 @@
       </edittypes>
       <renderer-v2 attr="totRatio" symbollevels="0" type="graduatedSymbol">
         <ranges>
-          <range render="true" symbol="0" lower="0.000000" upper="0.000000" label=" 0.0 - 0.0 "/>
-          <range render="true" symbol="1" lower="0.000000" upper="0.009009" label=" 0.0 - 0.0 "/>
-          <range render="true" symbol="2" lower="0.009009" upper="0.018018" label=" 0.0 - 0.0 "/>
-          <range render="true" symbol="3" lower="0.018018" upper="0.036036" label=" 0.0 - 0.0 "/>
-          <range render="true" symbol="4" lower="0.036036" upper="0.054054" label=" 0.0 - 0.1 "/>
+          <range render="true" symbol="0" lower="0.000000" upper="0.000000" label=" 0.00000000 - 0.00000000 "/>
+          <range render="true" symbol="1" lower="0.000000" upper="0.009009" label=" 0.00000000 - 0.00900901 "/>
+          <range render="true" symbol="2" lower="0.009009" upper="0.018018" label=" 0.00900901 - 0.01801802 "/>
+          <range render="true" symbol="3" lower="0.018018" upper="0.027027" label=" 0.01801802 - 0.02702703 "/>
+          <range render="true" symbol="4" lower="0.027027" upper="0.036036" label=" 0.02702703 - 0.03603604 "/>
+          <range render="true" symbol="5" lower="0.036036" upper="0.054054" label=" 0.03603604 - 0.05405405 "/>
         </ranges>
         <symbols>
           <symbol alpha="1" type="fill" name="0">
@@ -121,7 +122,7 @@
           <symbol alpha="1" type="fill" name="1">
             <layer pass="0" class="SimpleFill" locked="0">
               <prop k="border_width_map_unit_scale" v="0,0"/>
-              <prop k="color" v="254,204,92,255"/>
+              <prop k="color" v="254,214,109,255"/>
               <prop k="joinstyle" v="bevel"/>
               <prop k="offset" v="0,0"/>
               <prop k="offset_map_unit_scale" v="0,0"/>
@@ -136,7 +137,7 @@
           <symbol alpha="1" type="fill" name="2">
             <layer pass="0" class="SimpleFill" locked="0">
               <prop k="border_width_map_unit_scale" v="0,0"/>
-              <prop k="color" v="253,141,60,255"/>
+              <prop k="color" v="253,166,72,255"/>
               <prop k="joinstyle" v="bevel"/>
               <prop k="offset" v="0,0"/>
               <prop k="offset_map_unit_scale" v="0,0"/>
@@ -151,7 +152,7 @@
           <symbol alpha="1" type="fill" name="3">
             <layer pass="0" class="SimpleFill" locked="0">
               <prop k="border_width_map_unit_scale" v="0,0"/>
-              <prop k="color" v="240,59,32,255"/>
+              <prop k="color" v="247,108,48,255"/>
               <prop k="joinstyle" v="bevel"/>
               <prop k="offset" v="0,0"/>
               <prop k="offset_map_unit_scale" v="0,0"/>
@@ -164,6 +165,21 @@
             </layer>
           </symbol>
           <symbol alpha="1" type="fill" name="4">
+            <layer pass="0" class="SimpleFill" locked="0">
+              <prop k="border_width_map_unit_scale" v="0,0"/>
+              <prop k="color" v="229,47,33,255"/>
+              <prop k="joinstyle" v="bevel"/>
+              <prop k="offset" v="0,0"/>
+              <prop k="offset_map_unit_scale" v="0,0"/>
+              <prop k="offset_unit" v="MM"/>
+              <prop k="outline_color" v="0,0,0,255"/>
+              <prop k="outline_style" v="solid"/>
+              <prop k="outline_width" v="0.26"/>
+              <prop k="outline_width_unit" v="MM"/>
+              <prop k="style" v="solid"/>
+            </layer>
+          </symbol>
+          <symbol alpha="1" type="fill" name="5">
             <layer pass="0" class="SimpleFill" locked="0">
               <prop k="border_width_map_unit_scale" v="0,0"/>
               <prop k="color" v="189,0,38,255"/>
@@ -183,7 +199,7 @@
           <symbol alpha="1" type="fill" name="0">
             <layer pass="0" class="SimpleFill" locked="0">
               <prop k="border_width_map_unit_scale" v="0,0"/>
-              <prop k="color" v="185,215,119,255"/>
+              <prop k="color" v="57,218,200,255"/>
               <prop k="joinstyle" v="bevel"/>
               <prop k="offset" v="0,0"/>
               <prop k="offset_map_unit_scale" v="0,0"/>
@@ -206,7 +222,7 @@
         <mode name="jenks"/>
         <rotation/>
         <sizescale scalemethod="area"/>
-        <labelformat format=" %1 - %2 " trimtrailingzeroes="false" decimalplaces="4"/>
+        <labelformat format=" %1 - %2 " trimtrailingzeroes="false" decimalplaces="8"/>
       </renderer-v2>
       <customproperties>
         <property key="labeling" value="pal"/>
@@ -236,10 +252,10 @@
         <property key="labeling/distMapUnitMinScale" value="0"/>
         <property key="labeling/enabled" value="false"/>
         <property key="labeling/fieldName" value=""/>
-        <property key="labeling/fontBold" value="false"/>
+        <property key="labeling/fontBold" value="true"/>
         <property key="labeling/fontCapitals" value="0"/>
         <property key="labeling/fontFamily" value="Ubuntu"/>
-        <property key="labeling/fontItalic" value="false"/>
+        <property key="labeling/fontItalic" value="true"/>
         <property key="labeling/fontLetterSpacing" value="0"/>
         <property key="labeling/fontLimitPixelSize" value="false"/>
         <property key="labeling/fontMaxPixelSize" value="10000"/>
@@ -250,7 +266,7 @@
         <property key="labeling/fontSizeMapUnitMinScale" value="0"/>
         <property key="labeling/fontStrikeout" value="false"/>
         <property key="labeling/fontUnderline" value="false"/>
-        <property key="labeling/fontWeight" value="50"/>
+        <property key="labeling/fontWeight" value="63"/>
         <property key="labeling/fontWordSpacing" value="0"/>
         <property key="labeling/formatNumbers" value="false"/>
         <property key="labeling/isExpression" value="true"/>
@@ -376,10 +392,10 @@
         <multilineenabled fieldname="" on=""/>
         <selectedonly on=""/>
       </labelattributes>
-      <editform></editform>
+      <editform>.</editform>
       <editforminit/>
       <featformsuppress>0</featformsuppress>
-      <annotationform></annotationform>
+      <annotationform>.</annotationform>
       <editorlayout>generatedlayout</editorlayout>
       <excludeAttributesWMS/>
       <excludeAttributesWFS/>
@@ -645,10 +661,10 @@
         <multilineenabled fieldname="" on=""/>
         <selectedonly on=""/>
       </labelattributes>
-      <editform></editform>
+      <editform>.</editform>
       <editforminit/>
       <featformsuppress>0</featformsuppress>
-      <annotationform></annotationform>
+      <annotationform>.</annotationform>
       <editorlayout>generatedlayout</editorlayout>
       <excludeAttributesWMS/>
       <excludeAttributesWFS/>

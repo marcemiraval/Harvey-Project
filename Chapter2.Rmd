@@ -151,7 +151,7 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))
 
-### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND TH TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
+### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND THE TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
 ```
 
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
@@ -204,7 +204,7 @@ htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 
 ***
 
-###### Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
+Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
 
 ```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
@@ -227,39 +227,42 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
             position = "bottomright")
 
 SandyHexSpotMap
-htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+# htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 ***
 
-###### Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
+Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
 
-```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
-bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
-pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
+$\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 
-SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
+
+```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE}
+bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55)
+pal <- colorBin("YlOrRd", domain = hexWithSpoReports$totRatio, bins = bins)
+
+SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~pal(total),
+  addPolygons(fillColor = ~pal(totRatio),
               weight = 2,
               opacity = 1,
               color = "white",
               dashArray = "2",
               fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",totRatio))) %>%
   addLegend(pal = pal, 
-            values = ~total, 
+            values = ~totRatio, 
             opacity = 0.7, 
-            title = "Number of NWS reports",
+            title = "Ratio of NWS reports",
             position = "bottomright")
 
-SandyHexSpotMap
-htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+SandyHexSpotNorMap
+htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
 ```
 
 *** 
 
-###### Aggregation to hexagons for tweets. 800 hexagons covering area of study.
+Aggregation to hexagons for tweets. 800 hexagons covering area of study.
 
 ```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE}
 binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 22000)
@@ -282,6 +285,38 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
             position = "bottomright")
 
 SandyHexTweetMap
-htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
+# htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
+
+*** 
+
+Normalizing aggregation to hexagons for tweets. 800 hexagons covering area of study.
+
+$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
+
+```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE}
+
+binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.28000)
+palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
+
+SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~palTweets(totRatio),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
+  addLegend(pal = palTweets, 
+            values = ~totRatio, 
+            opacity = 0.7, 
+            title = "Ratio of Tweets",
+            position = "bottomright")
+
+SandyHexTweetNorMap
+htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
+```
+
 
