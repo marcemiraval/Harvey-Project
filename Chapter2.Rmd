@@ -11,7 +11,6 @@ library(tidyverse)
 library(sf)
 library(leaflet)
 library(htmltools)
-library(lubridate)
 library(maptools)
 library(data.table)
 library(markdown)
@@ -25,22 +24,9 @@ of Kentucky. Tweets contained in this dataset were sent from within the United S
 October 24 and October 31 of 2012 with explicit geographic information as latitude and
 longitude coordinates.
 
-```{r load_data_spotters, include=FALSE, echo=TRUE}
-storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
-```
-
-```{r load_data_Twitter, include=FALSE, echo=FALSE}
-sandyTweets <- read_csv("Sandy_Clean.csv")
-```
-
 Spatial information representing state boundaries was downloaded in shapefile format from the
 United States Census Bureau website. Polygons representing state boundaries by 2017 are used 
 in this study.
-
-
-```{r load_spatial_data, include=FALSE, echo=FALSE}
-us_states <- st_read(dsn = "~/Coding/Data", layer = "tl_2017_us_state") # Read shapefile
-```
 
 Based on this spatial dataset, a polygon representing the states affected by Hurricane Sandy 
 was created. According to the SHELDUS database, the following states were affected by the
@@ -52,71 +38,31 @@ only Tweets and reports sent within the two days with more impact reported (Oct/
 which also were the days with reports from both data sources. After filtering, the NWS datasets contains
 only 115 reports and the Twitter dataset contains 74807 tweets. 
 
-```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
-storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
-
-states_sandySpot <- c("MARYLAND", "DELAWARE", "NEW JERSEY", "NEW YORK", "CONNECTICUT",
-                    "MASSACHUSETTS", "RHODE ISLAND", "NORTH CAROLINA", "VIRGINIA",
-                    "WEST VIRGINIA", "OHIO", "PENNSYLVANIA", "NEW HAMPSHIRE", "DISTRICT OF COLUMBIA")
-
-sandySpot <- storm2012 %>%
-  select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
-         CZ_TIMEZONE, EPISODE_NARRATIVE, EVENT_NARRATIVE, dateTime) %>% 
-  filter(!is.na(BEGIN_LAT)) %>%
-  filter(STATE %in% states_sandySpot) %>% 
-  filter(dateTime >= "2012-10-29 00:00:00 UTC" & dateTime < "2012-11-01 00:00:00 UTC")
-```
-
-```{r filter_Twitter_sandy, include=FALSE, echo=FALSE}
-sandyTweets$created_at <- ymd_hms(sandyTweets$created_at, tz ="UTC")# Format date/time
-
-states_sandy <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
-                    "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
-                    "West Virginia", "Ohio", "Pennsylvania", "New Hampshire", "District of Columbia") # ha! had to include WDC for the map.
-
-sandyTweetsIn <- sandyTweets %>% 
-  select(lat = latitude, 
-         lon = longitude, 
-         create_time = created_at, 
-         state = c_state,
-         id = id,
-         tweet = text) %>% 
-  filter(state %in% states_sandy) %>%
-  filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
-```
-
 # Data Analysis
 
-## Hexagonal Grid Preparation
+## 1. Load Data
 
-1. Set Coordinate Reference System. All information in/or transformed to use NAD83 as datum.
+```{r load_data}
+load(file= "sandy_boundary.RData")
+load(file = "sandySpotIn_sf.RData")
+load(file = "sandyTweetsIn_sf.RData")
+```
 
-2. Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
+## 2. Create Hexagonal Grid 
+
+Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
 Choose the cell size that has the maximum variance.
 
-
 ```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
-sandy_states <- us_states %>% 
-  filter(NAME %in% states_sandy)
-sandy_boundary <- st_union(sandy_states) # spatial merge to create boundary
-
 sf_sandy_states <-  as(sandy_boundary, "Spatial")
 sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
 sf_hex <- st_as_sf(sp_hex)
 ```
 
-```{r CRS_set_and_transform, include=FALSE, echo=FALSE}
-st_crs(sandy_boundary)
-st_crs(sandy_states)
-
-sandySpot_sf <- st_as_sf(sandySpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326) #Ha! coords = ("x","y"). Also defined in datum WGS84. Setting CRS could here or add %>% st_set_crs(4326)
-
-sandyTweetsIn_sf <- st_as_sf(sandyTweetsIn, coords = c("lon", "lat"), crs = 4326)
-  
-# I ended up doing the opposite. Now everything is in datum WGS84
-sf_hex <- sf_hex %>%
-  st_transform(st_crs(sandySpot_sf))
-st_crs(sf_hex)
+```{r}
+spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
+sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, type="hexagonal", cellsize =1000))
+plot(sp_hexTweets)
 ```
 
 ```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
@@ -150,6 +96,11 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   group_by(group) %>% 
   summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))
+```
+
+
+
+
 
 ### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND THE TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
 ```
@@ -237,7 +188,8 @@ $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 
 
 ```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE}
-bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55)
+bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55) # Breaks according to Natural Breaks (Jenks) classification.
+
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$totRatio, bins = bins)
 
 SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
@@ -296,7 +248,8 @@ $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 
 ```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE}
 
-binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.28000)
+binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3000)  # Breaks according to Natural Breaks (Jenks) classification.
+
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
 
 SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
@@ -316,7 +269,6 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
             position = "bottomright")
 
 SandyHexTweetNorMap
-htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
+# htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
 ```
-
 
