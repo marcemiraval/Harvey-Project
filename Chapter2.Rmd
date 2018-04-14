@@ -43,9 +43,9 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 ## 1. Load Data
 
 ```{r load_data}
-load(file= "sandy_boundary.RData")
-load(file = "sandySpotIn_sf.RData")
-load(file = "sandyTweetsIn_sf.RData")
+load(file= "Data/sandy_boundary.RData")
+load(file = "Data/sandySpotIn_sf.RData")
+load(file = "Data/sandyTweetsIn_sf.RData")
 ```
 
 ## 2. Create Hexagonal Grid 
@@ -53,16 +53,27 @@ load(file = "sandyTweetsIn_sf.RData")
 Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
 Choose the cell size that has the maximum variance.
 
-```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
+```{r create_hexagonal_grid_polygon, include=FALSE, echo=FALSE}
 sf_sandy_states <-  as(sandy_boundary, "Spatial")
-sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
-sf_hex <- st_as_sf(sp_hex)
+
+nHex <- c(100, 200, 400, 600, 800)
+
+sp_hex = SpatialPolygonsDataFrame(SpatialPolygons(list()), data=data.frame())
+
+for (i in nHex){
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = i, type = "hexagonal"))
+  plot(sp_hex)
+  # sf_hex <- st_as_sf(sp_hex)
+  # But also all the code for plots should go here in a function as in the example
+  # Look at mapply too
+}
+
 ```
 
-```{r}
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE}
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
-sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, type="hexagonal", cellsize =1000))
-plot(sp_hexTweets)
+sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
+sf_hexTweets <- st_as_sf(sp_hexTweets)
 ```
 
 ```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
@@ -96,11 +107,6 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   group_by(group) %>% 
   summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))
-```
-
-
-
-
 
 ### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND THE TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
 ```
