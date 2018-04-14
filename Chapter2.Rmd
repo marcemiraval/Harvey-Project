@@ -56,21 +56,22 @@ Choose the cell size that has the maximum variance.
 ```{r create_hexagonal_grid_polygon, include=FALSE, echo=FALSE}
 sf_sandy_states <-  as(sandy_boundary, "Spatial")
 
-nHex <- c(100, 200, 400, 600, 800)
+nHex <- c(800, 1000, 1200, 1400, 2000)
 
-sp_hex = SpatialPolygonsDataFrame(SpatialPolygons(list()), data=data.frame())
+results <- list()
 
 for (i in nHex){
   sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = i, type = "hexagonal"))
-  plot(sp_hex)
-  # sf_hex <- st_as_sf(sp_hex)
+ # plot(sp_hex)
+  sf_hex <- st_as_sf(sp_hex)
+  results[[i]] <- sf_hex
   # But also all the code for plots should go here in a function as in the example
-  # Look at mapply too
 }
 
 ```
 
-```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE}
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
+# To create hexagons based on points.
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
 sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
 sf_hexTweets <- st_as_sf(sp_hexTweets)
