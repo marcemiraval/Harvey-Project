@@ -53,20 +53,32 @@ load(file = "Data/sandyTweetsIn_sf.RData")
 Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
 Choose the cell size that has the maximum variance.
 
-```{r create_hexagonal_grid_polygon, include=FALSE, echo=FALSE}
-sf_sandy_states <-  as(sandy_boundary, "Spatial")
-
+```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
+# TALVEZ ESTO SF_sandy_states puede llamarse simplemente sf_sandy_boundary y puede ir en el rmd de data preparation. Check this with the rest of the code tomorrow.
+sf_sandy_states <-  as(sandy_boundary, "Spatial") 
 nHex <- c(800, 1000, 1200, 1400, 2000)
+```
 
+```{r create_hexagonal_grids_for, include=FALSE, echo=FALSE}
 results <- list()
 
 for (i in nHex){
   sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = i, type = "hexagonal"))
- # plot(sp_hex)
   sf_hex <- st_as_sf(sp_hex)
   results[[i]] <- sf_hex
   # But also all the code for plots should go here in a function as in the example
-}
+}  
+
+ggplot() + geom_sf(data = results[[1000]]) # Testing results
+```
+
+```{r create_hexagonal_grids_sapply, include=FALSE, echo=FALSE}
+creaHex <- function(hexNum) {
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = hexNum, type = "hexagonal"))
+  sf_hex <- st_as_sf(sp_hex)
+  plot(sf_hex)
+  }
+hexagons <- sapply(nHex, creaHex)
 
 ```
 
