@@ -43,9 +43,11 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 ## 1. Load Data
 
 ```{r load_data}
-load(file= "Data/sandy_boundary.RData")
+
+load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
+
 ```
 
 ## 2. Create Hexagonal Grid 
@@ -54,32 +56,38 @@ Created hexagons at a range of sizes and compare the overall variance in the val
 Choose the cell size that has the maximum variance.
 
 ```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
-# TALVEZ ESTO SF_sandy_states puede llamarse simplemente sf_sandy_boundary y puede ir en el rmd de data preparation. Check this with the rest of the code tomorrow.
-sf_sandy_states <-  as(sandy_boundary, "Spatial") 
+
+sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
 nHex <- c(800, 1000, 1200, 1400, 2000)
+
 ```
 
 ```{r create_hexagonal_grids_for, include=FALSE, echo=FALSE}
-results <- list()
+
+hexagons <- list()
 
 for (i in nHex){
-  sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = i, type = "hexagonal"))
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n = i, type = "hexagonal"))
   sf_hex <- st_as_sf(sp_hex)
-  results[[i]] <- sf_hex
-  # But also all the code for plots should go here in a function as in the example
+  hexagons[[i]] <- sf_hex # Creates a Large list (2000 elements, 5.4 Mb)
 }  
 
-ggplot() + geom_sf(data = results[[1000]]) # Testing results
+# ggplot() + geom_sf(data = hexagons[[1000]]) # Testing results
+
 ```
 
 ```{r create_hexagonal_grids_sapply, include=FALSE, echo=FALSE}
-creaHex <- function(hexNum) {
-  sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n = hexNum, type = "hexagonal"))
-  sf_hex <- st_as_sf(sp_hex)
-  plot(sf_hex)
-  }
-hexagons <- sapply(nHex, creaHex)
 
+creaHex <- function(hexNum) {
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n = hexNum, type = "hexagonal"))
+  sf_hex <- st_as_sf(sp_hex)
+  sf_hex$group <- 1:nrow(sf_hex)
+  }
+
+hexagons <- sapply(nHex, creaHex) # Creates a Large list (5 elements, 5.4 Mb)
+
+#plot(hexagons[[1]])
+#ggplot() + geom_sf(data = hexagons[[[1]]]) # Not sure why plot works here and not ggplot
 ```
 
 ```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
@@ -110,6 +118,7 @@ sf_hex$group <- 1:nrow(sf_hex)
 spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
   group_by(group)
 
+# Compute the number of hurricane Sandy related NWS reports by hexagon
 hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID))) %>% 
