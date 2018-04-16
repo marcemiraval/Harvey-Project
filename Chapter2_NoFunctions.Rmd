@@ -43,9 +43,9 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 ## 1. Load Data
 
 ```{r load_data}
-load(file= "sandy_boundary.RData")
-load(file = "sandySpotIn_sf.RData")
-load(file = "sandyTweetsIn_sf.RData")
+load(file= "Data/sandy_boundary_sf.RData")
+load(file = "Data/sandySpotIn_sf.RData")
+load(file = "Data/sandyTweetsIn_sf.RData")
 ```
 
 ## 2. Create Hexagonal Grid 
@@ -54,15 +54,22 @@ Created hexagons at a range of sizes and compare the overall variance in the val
 Choose the cell size that has the maximum variance.
 
 ```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
-sf_sandy_states <-  as(sandy_boundary, "Spatial")
-sp_hex <- HexPoints2SpatialPolygons(spsample(sf_sandy_states, n=800, type="hexagonal"))
+sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
+sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n=800, type="hexagonal"))
 sf_hex <- st_as_sf(sp_hex)
 ```
 
 ```{r}
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
 sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, type="hexagonal", cellsize =1000))
-plot(sp_hexTweets)
+
+```
+
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
+# To create hexagons based on points.
+spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
+sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
+sf_hexTweets <- st_as_sf(sp_hexTweets)
 ```
 
 ```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
@@ -86,6 +93,7 @@ sf_hex$group <- 1:nrow(sf_hex)
 spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
   group_by(group)
 
+# Compute the number of hurricane Sandy related NWS reports by hexagon
 hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID))) %>% 
@@ -98,19 +106,12 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
-
-
-
-
-### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND THE TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
-```
-
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test in QGIS
 # Just turn eval to TRUE in case I need it
-st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE)
-st_write(hexWithTweets, "hexWithTweets.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
+st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
+st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
+st_write(sandySpot_sf, "Data/sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
 ```{r map_colo_reports, echo=FALSE, eval=FALSE}
