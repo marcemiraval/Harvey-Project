@@ -59,14 +59,8 @@ sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n=800, type="hex
 sf_hex <- st_as_sf(sp_hex)
 ```
 
-```{r}
-spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
-sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, type="hexagonal", cellsize =1000))
-
-```
-
 ```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
-# To create hexagons based on points.
+# To create hexagons based on points. -> To make sure every point has its own hexagon
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
 sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
 sf_hexTweets <- st_as_sf(sp_hexTweets)
@@ -90,11 +84,11 @@ I get all counts of tweets based on hexagons definition. So I am adding reports 
 sf_hex$group <- 1:nrow(sf_hex)
 
 #### Join with Spotters ######
-spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
-  group_by(group)
+#spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
+  #group_by(group)
 
 # Compute the number of hurricane Sandy related NWS reports by hexagon
-hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
+hexWithSpoReports <- st_join(sf_hex, sandySpotIn_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID))) %>% 
   mutate(totRatio = total/sum(total))# Add column that normalize totals
@@ -105,6 +99,16 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))
 ```
+
+```{r}
+min(hexWithTweets$total)
+max(hexWithTweets$totRatio)
+qplot(total, data = hexWithTweets, geom = "bar", binwidth = 500)
+qplot(totRatio, data = hexWithTweets, geom = "bar", binwidth =0.005)
+qplot(total, data = hexWithSpoReports, geom = "bar")
+qplot(totRatio, data = hexWithSpoReports, geom = "bar")
+```
+
 
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test in QGIS
