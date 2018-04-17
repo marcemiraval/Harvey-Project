@@ -100,19 +100,12 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
-```{r}
-min(hexWithTweets$total)
-max(hexWithTweets$totRatio)
-qplot(total, data = hexWithTweets, geom = "bar", binwidth = 500)
-qplot(totRatio, data = hexWithTweets, geom = "bar", binwidth =0.005)
-qplot(total, data = hexWithSpoReports, geom = "bar")
-qplot(totRatio, data = hexWithSpoReports, geom = "bar")
+```{r create_hists}
+ggplot(hexWithTweets, aes(total)) + geom_histogram()
+ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
+ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
+ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
 
-
-p <- ggplot(data = hexWithTweets, aes(total, group)) + geom_count()
-p
-q <- ggplot(data = hexWithSpoReports, aes(total, group)) + geom_count(aes(size = ..prop..))
-q
 ```
 
 
