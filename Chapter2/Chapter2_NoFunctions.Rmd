@@ -43,11 +43,9 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 ## 1. Load Data
 
 ```{r load_data}
-
 load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
-
 ```
 
 ## 2. Create Hexagonal Grid 
@@ -55,43 +53,14 @@ load(file = "Data/sandyTweetsIn_sf.RData")
 Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
 Choose the cell size that has the maximum variance.
 
-```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
-
-sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
-nHex <- c(800, 1000, 1200, 1400, 2000)
-
-```
-
-```{r create_hexagonal_grids_for, include=FALSE, echo=FALSE}
-
-hexagons <- list()
-
-for (i in nHex){
-  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n = i, type = "hexagonal"))
-  sf_hex <- st_as_sf(sp_hex)
-  hexagons[[i]] <- sf_hex # Creates a Large list (2000 elements, 5.4 Mb)
-}  
-
-# ggplot() + geom_sf(data = hexagons[[1000]]) # Testing results
-
-```
-
-```{r create_hexagonal_grids_sapply, include=FALSE, echo=FALSE}
-
-creaHex <- function(hexNum) {
-  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n = hexNum, type = "hexagonal"))
-  sf_hex <- st_as_sf(sp_hex)
-  sf_hex$group <- 1:nrow(sf_hex)
-  }
-
-hexagons <- sapply(nHex, creaHex) # Creates a Large list (5 elements, 5.4 Mb)
-
-#plot(hexagons[[1]])
-#ggplot() + geom_sf(data = hexagons[[[1]]]) # Not sure why plot works here and not ggplot
+```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
+sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
+sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n=800, type="hexagonal"))
+sf_hex <- st_as_sf(sp_hex)
 ```
 
 ```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
-# To create hexagons based on points.
+# To create hexagons based on points. -> To make sure every point has its own hexagon
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
 sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
 sf_hexTweets <- st_as_sf(sp_hexTweets)
@@ -115,11 +84,11 @@ I get all counts of tweets based on hexagons definition. So I am adding reports 
 sf_hex$group <- 1:nrow(sf_hex)
 
 #### Join with Spotters ######
-spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
-  group_by(group)
+#spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
+  #group_by(group)
 
 # Compute the number of hurricane Sandy related NWS reports by hexagon
-hexWithSpoReports <- st_join(sf_hex, sandySpot_sf)%>% 
+hexWithSpoReports <- st_join(sf_hex, sandySpotIn_sf)%>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID))) %>% 
   mutate(totRatio = total/sum(total))# Add column that normalize totals
@@ -129,38 +98,25 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   group_by(group) %>% 
   summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))
-
-### THERE IS A DIFFERENCE BETWEEN THE TOTAL REPORTS CONSIDERED AND THE TOTAL CALCULATED FROM THE HEX FILES. HEXAGONS EXCLUDE SOME REPORTS. SO  I NEED TO CHECK HOW TO CREATE THAT HEXAGON GRID AGAIN
 ```
+
+```{r create_hists}
+ggplot(hexWithTweets, aes(total)) + geom_histogram()
+ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
+ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
+ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
+
+```
+
 
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test in QGIS
 # Just turn eval to TRUE in case I need it
-st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE)
-st_write(hexWithTweets, "hexWithTweets.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
+st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
+st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
+st_write(sandySpot_sf, "Data/sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
-```{r map_colo_reports, echo=FALSE, eval=FALSE}
-coloSpot_sf <-  st_as_sf(coloSpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
-coloTweets_sf <-  st_as_sf(coloradoT, coords = c("lon", "lat"), crs = 4326)
-
-
-coloReportsMap <- leaflet(coloTweets_sf) %>% 
-  addTiles()  %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
-      addCircles(weight = 3, radius=40,
-                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(tweet)) %>%
-      addCircles(data = coloSpot_sf, weight = 3, radius=40,
-                 color="red", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
-      setView(lng = -105.9, lat = 39.3, zoom = 8)
-
-coloReportsMap
-
-htmlwidgets::saveWidget(coloReportsMap, file = "coloReportsMap.html")
-```
 
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
 # With EVAL false the map is not loading
