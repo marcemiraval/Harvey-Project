@@ -14,6 +14,8 @@ library(htmltools)
 library(maptools)
 library(data.table)
 library(markdown)
+library(grid)
+library(gridExtra)
 ```
 # Data Preparation
 
@@ -42,7 +44,7 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 
 ## 1. Load Data
 
-```{r load_data}
+```{r load_data, include=FALSE, echo=FALSE}
 load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
@@ -83,8 +85,6 @@ I get all counts of tweets based on hexagons definition. So I am adding reports 
 
 ```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
 
-
-
 #### Join with Spotters ######
 #spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
   #group_by(group)
@@ -103,11 +103,12 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
 ```
 
 ```{r create_hists}
-ggplot(hexWithTweets, aes(total)) + geom_histogram()
-ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
-ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
-ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
-
+plotTtotal <- ggplot(hexWithTweets, aes(total)) + geom_histogram()
+plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
+plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
+plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
+grid.arrange(plotTtotal, plotTratio, ncol = 2, top = "Tweets Distribution")
+grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
 ```
 
 
