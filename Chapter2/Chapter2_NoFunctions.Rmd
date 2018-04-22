@@ -42,31 +42,47 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 
 # Data Analysis
 
-## 1. Load Data
-
 ```{r load_data, include=FALSE, echo=FALSE}
 load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
 ```
 
-## 2. Create Hexagonal Grid 
+The purpose of this analysis is to estimate the correspondence between the spatial distribution of Twitter reports and that of reports collected in a traditional fashion by the NWS. Grids of hexagons at a range of sizes are used to compare the overall variance in the density of reports across cells. That density is estimated for each data set as follows: 
 
-Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
-Choose the cell size that has the maximum variance.
+***
+$\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
+***
 
-```{r create_hexagonal_grid, include=FALSE, echo=FALSE}
+*** 
+$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
+***
+
+```{r create_hexagonal_grid, include=FALSE, echo=FALSE, eval=FALSE}
+# 800 hexagons covering area of study.
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
-sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n=800, type="hexagonal"))
+sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
+                                             n=800, 
+                                             type="hexagonal"))
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
 ```
 
-```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE}
 # To create hexagons based on points. -> To make sure every point has its own hexagon
-spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
-sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
-sf_hexTweets <- st_as_sf(sp_hexTweets)
+# spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
+# sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets,
+#                                                    n = 800, 
+#                                                    type="hexagonal"))
+# sf_hexTweets <- st_as_sf(sp_hexTweets) %>% 
+#   mutate(group = 1:nrow(.))
+
+sandy_boundary_sp <- as(sandyTweetsIn_sf, 'Spatial')
+sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp,
+                                                   n = 800, 
+                                                   type="hexagonal"))
+sf_hex <- st_as_sf(sp_hex) %>% 
+  mutate(group = 1:nrow(.))
 ```
 
 ```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
@@ -81,16 +97,16 @@ sf_hex <- sf_hex %>%
   st_transform(projSandy)
 ```
 
-I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
-
 ```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
 
+# Aggregation to hexagons for NWS reports. 
 # Compute the number of hurricane Sandy related NWS reports by hexagon
 hexWithSpoReports <- st_join(sf_hex, sandySpotIn_sf) %>% 
   group_by(group) %>%
   summarise(total = sum(!is.na(EVENT_ID))) %>% 
   mutate(totRatio = total/sum(total))# Add column that normalize totals
 
+# Aggregation to hexagons for Tweets. 
 # Computing the number of hurricane Sandy related Tweets by hexagon
 hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>% 
   group_by(group) %>%
@@ -103,7 +119,8 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
 # Just turn eval to TRUE in case I need it
 st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
 st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "Data/sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
+st_write(sandySpot_sf, "Data/sandySpotReports.shp", 
+         layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
@@ -123,12 +140,10 @@ SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>%
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
-***
+## NWS reports 
 
-Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
-
-```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
-bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
+```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE, message= FALSE}
+bins <- c(0, 1, 2, 3, 4, 5, 6, 8)
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
 
 SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
@@ -140,24 +155,18 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
               color = "white",
               dashArray = "2",
               fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
+                                          total))) %>%
   addLegend(pal = pal, 
             values = ~total, 
             opacity = 0.7, 
-            title = "Number of NWS reports",
+            title = "# of reports",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 
-***
-
-Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
-
-$\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
-
-
-```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE}
+```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE, message= FALSE}
 bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55) # Breaks according to Natural Breaks (Jenks) classification.
 
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$totRatio, bins = bins)
@@ -171,26 +180,31 @@ SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
               color = "white",
               dashArray = "2",
               fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",totRatio))) %>%
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
+                                          totRatio))) %>%
   addLegend(pal = pal, 
             values = ~totRatio, 
             opacity = 0.7, 
-            title = "Ratio of NWS reports",
+            title = "Density",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
 ```
 
-```{r}
+```{r, warning= FALSE, echo=FALSE}
 sync(SandyHexSpotMap, SandyHexSpotNorMap)
 ```
 
-*** 
+```{r create_hists_NWS, warning= FALSE, echo=FALSE, message= FALSE}
+plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
+plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
+grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
+```
 
-Aggregation to hexagons for tweets. 800 hexagons covering area of study.
+## Tweets
 
-```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE}
-binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 22000)
+```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
+binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 24000)
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$total, bins = binsTweets)
 
 SandyHexTweetMap <- leaflet(hexWithTweets) %>%
@@ -202,25 +216,19 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
               color = "white",
               dashArray = "2",
               fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
+              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>%
   addLegend(pal = palTweets, 
             values = ~total, 
             opacity = 0.7, 
-            title = "Number of Tweets",
+            title = "# of Tweets",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
 
-*** 
+```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE, message= FALSE}
 
-Normalizing aggregation to hexagons for tweets. 800 hexagons covering area of study.
-
-$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
-
-```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE}
-
-binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3000)  # Breaks according to Natural Breaks (Jenks) classification.
+binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3200)  # Breaks according to Natural Breaks (Jenks) classification.
 
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
 
@@ -233,27 +241,29 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
               color = "white",
               dashArray = "2",
               fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
+              popup = ~htmlEscape(sprintf("Tweets per hexagon: %f", 
+                                          totRatio))) %>% 
   addLegend(pal = palTweets, 
             values = ~totRatio, 
             opacity = 0.7, 
-            title = "Ratio of Tweets",
+            title = "Density",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
 ```
 
-```{r}
+```{r, warning= FALSE, echo=FALSE}
 sync(SandyHexTweetMap, SandyHexTweetNorMap)
 ```
 
-
-```{r create_hists}
+```{r create_hists_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
 plotTtotal <- ggplot(hexWithTweets, aes(total)) + geom_histogram()
 plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
-plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
-plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
 grid.arrange(plotTtotal, plotTratio, ncol = 2, top = "Tweets Distribution")
-grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
 ```
+
+```{r, warning= FALSE, echo=FALSE}
+## NEXT.Choose the cell size that has the maximum variance.
+```
+
 
