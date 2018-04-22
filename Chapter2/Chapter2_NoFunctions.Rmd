@@ -12,10 +12,10 @@ library(sf)
 library(leaflet)
 library(htmltools)
 library(maptools)
-library(data.table)
 library(markdown)
 library(grid)
 library(gridExtra)
+library(mapview)
 ```
 # Data Preparation
 
@@ -85,10 +85,6 @@ I get all counts of tweets based on hexagons definition. So I am adding reports 
 
 ```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
 
-#### Join with Spotters ######
-#spoReports <- st_join(sandySpot_sf, sf_hex)%>% # Not sure yet when I need this.
-  #group_by(group)
-
 # Compute the number of hurricane Sandy related NWS reports by hexagon
 hexWithSpoReports <- st_join(sf_hex, sandySpotIn_sf) %>% 
   group_by(group) %>%
@@ -102,24 +98,13 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
-```{r create_hists}
-plotTtotal <- ggplot(hexWithTweets, aes(total)) + geom_histogram()
-plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
-plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
-plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
-grid.arrange(plotTtotal, plotTratio, ncol = 2, top = "Tweets Distribution")
-grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
-```
-
-
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
-# Exporting shapefiles to test in QGIS
+# Exporting shapefiles to test classification in QGIS
 # Just turn eval to TRUE in case I need it
 st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
 st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
 st_write(sandySpot_sf, "Data/sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
-
 
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
 # With EVAL false the map is not loading
@@ -134,8 +119,6 @@ SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>%
                  color="red", stroke = TRUE, fillOpacity = 0.8,
                  popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
       setView(lng = -74.9, lat = 40.4, zoom = 6)
-
-SandyReportsMap
 
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
@@ -164,9 +147,9 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
             title = "Number of NWS reports",
             position = "bottomright")
 
-SandyHexSpotMap
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
+
 ***
 
 Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
@@ -195,8 +178,11 @@ SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
             title = "Ratio of NWS reports",
             position = "bottomright")
 
-SandyHexSpotNorMap
-htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
+# htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
+```
+
+```{r}
+sync(SandyHexSpotMap, SandyHexSpotNorMap)
 ```
 
 *** 
@@ -223,7 +209,6 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
             title = "Number of Tweets",
             position = "bottomright")
 
-SandyHexTweetMap
 # htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
 
@@ -255,7 +240,20 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
             title = "Ratio of Tweets",
             position = "bottomright")
 
-SandyHexTweetNorMap
 # htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
+```
+
+```{r}
+sync(SandyHexTweetMap, SandyHexTweetNorMap)
+```
+
+
+```{r create_hists}
+plotTtotal <- ggplot(hexWithTweets, aes(total)) + geom_histogram()
+plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
+plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
+plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
+grid.arrange(plotTtotal, plotTratio, ncol = 2, top = "Tweets Distribution")
+grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
 ```
 
