@@ -52,11 +52,11 @@ The purpose of this analysis is to estimate the correspondence between the spati
 
 ***
 $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
-***
+
 
 *** 
-$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
-***
+$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$  
+
 
 ```{r create_hexagonal_grid, include=FALSE, echo=FALSE, eval=FALSE}
 # 800 hexagons covering area of study.
@@ -140,7 +140,7 @@ SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>%
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
-## NWS reports 
+### NWS Reports and Tweets' Distribution    
 
 ```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE, message= FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 8)
@@ -160,7 +160,7 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
   addLegend(pal = pal, 
             values = ~total, 
             opacity = 0.7, 
-            title = "# of reports",
+            title = "# of NWS reports",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
@@ -185,7 +185,7 @@ SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
   addLegend(pal = pal, 
             values = ~totRatio, 
             opacity = 0.7, 
-            title = "Density",
+            title = "NWS Reports Density",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
@@ -195,13 +195,8 @@ SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
 sync(SandyHexSpotMap, SandyHexSpotNorMap)
 ```
 
-```{r create_hists_NWS, warning= FALSE, echo=FALSE, message= FALSE}
-plotStotal <- ggplot(hexWithSpoReports, aes(total)) + geom_histogram()
-plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + geom_histogram()
-grid.arrange(plotStotal, plotSratio, ncol = 2, top = "NWS reports Distribution")
-```
+***  
 
-## Tweets
 
 ```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
 binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 24000)
@@ -228,7 +223,7 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
 
 ```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE, message= FALSE}
 
-binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3200)  # Breaks according to Natural Breaks (Jenks) classification.
+binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3250)  # Breaks according to Natural Breaks (Jenks) classification.
 
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
 
@@ -246,7 +241,7 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
   addLegend(pal = palTweets, 
             values = ~totRatio, 
             opacity = 0.7, 
-            title = "Density",
+            title = "Tweets Density",
             position = "bottomright")
 
 # htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
@@ -256,10 +251,28 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
 sync(SandyHexTweetMap, SandyHexTweetNorMap)
 ```
 
+***  
+
 ```{r create_hists_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
-plotTtotal <- ggplot(hexWithTweets, aes(total)) + geom_histogram()
-plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + geom_histogram()
-grid.arrange(plotTtotal, plotTratio, ncol = 2, top = "Tweets Distribution")
+plotStotal <- ggplot(hexWithSpoReports, aes(total)) + 
+  geom_histogram() +
+  labs(x = "Number of NWS reports by hexagon", y = "Number of hexagons") +
+  theme_classic()
+plotSratio <- ggplot(hexWithSpoReports, aes(totRatio)) + 
+  geom_histogram() +
+  labs(x = "Density of NWS reports by hexagon", y = "Number of hexagons") +
+  theme_classic()
+plotTtotal <- ggplot(hexWithTweets, aes(total)) + 
+  geom_histogram()  +
+  labs(x = "Number of tweets by hexagon", y = "Number of hexagons") +
+  theme_classic()
+plotTratio <- ggplot(hexWithTweets, aes(totRatio)) + 
+  geom_histogram() +
+  labs(x = "Density of tweets by hexagon", y = "Number of hexagons") +
+  theme_classic()
+grid.arrange(plotStotal, plotSratio, plotTtotal, plotTratio, ncol = 2, nrow =2)
+
+#grid.arrange(plotStotal, plotSratio, ncol = 2)
 ```
 
 ```{r, warning= FALSE, echo=FALSE}
