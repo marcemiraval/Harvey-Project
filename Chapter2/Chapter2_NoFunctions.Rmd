@@ -58,7 +58,7 @@ $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$  
 
 
-```{r create_hexagonal_grid, include=FALSE, echo=FALSE, eval=FALSE}
+```{r create_hexagonal_boundary_grid, include=FALSE, echo=FALSE}
 # 800 hexagons covering area of study.
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
 sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
@@ -68,20 +68,12 @@ sf_hex <- st_as_sf(sp_hex) %>%
   mutate(group = 1:nrow(.))
 ```
 
-```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE}
-# To create hexagons based on points. -> To make sure every point has its own hexagon
-# spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
-# sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets,
-#                                                    n = 800, 
-#                                                    type="hexagonal"))
-# sf_hexTweets <- st_as_sf(sp_hexTweets) %>% 
-#   mutate(group = 1:nrow(.))
-
-sandy_boundary_sp <- as(sandyTweetsIn_sf, 'Spatial')
-sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp,
-                                                   n = 800, 
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval= FALSE}
+spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
+sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets,
+                                                   n = 800,
                                                    type="hexagonal"))
-sf_hex <- st_as_sf(sp_hex) %>% 
+sf_hexTweets <- st_as_sf(sp_hexTweets) %>%
   mutate(group = 1:nrow(.))
 ```
 
