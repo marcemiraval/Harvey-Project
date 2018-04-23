@@ -107,11 +107,19 @@ TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
 
 
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
-# TOMORROW. I CAN CREATE A NEW FUNCTION HERE. NEED TO CHECK ONE OF MY OLD CODES.
+# Need a function+lapply for this.
 # Exporting shapefiles to test classification in QGIS
-# Just turn eval to TRUE in case I need it
-st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
-st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
+
+st_write(TotalsSpotters$h800, "Data/hexS800.shp", delete_layer = TRUE)
+st_write(TotalsSpotters$h1000, "Data/hexS1000.shp", delete_layer = TRUE)
+st_write(TotalsSpotters$h1200, "Data/hexS1200.shp", delete_layer = TRUE)
+st_write(TotalsSpotters$h1400, "Data/hexS1400.shp", delete_layer = TRUE)
+st_write(TotalsSpotters$h2000, "Data/hexS2000.shp", delete_layer = TRUE)
+st_write(TotalsTweets$h800, "Data/hexT800.shp", delete_layer = TRUE)
+st_write(TotalsTweets$h1000, "Data/hexT1000.shp", delete_layer = TRUE)
+st_write(TotalsTweets$h1200, "Data/hexT1200.shp", delete_layer = TRUE)
+st_write(TotalsTweets$h1400, "Data/hexT1400.shp", delete_layer = TRUE)
+st_write(TotalsTweets$h2000, "Data/hexT2000.shp", delete_layer = TRUE)
 st_write(sandySpot_sf, "Data/sandySpotReports.shp", 
          layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
@@ -313,5 +321,9 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
 
 SandyHexTweetNorMap
 # htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
+```
+
+```{r, warning= FALSE, echo=FALSE}
+## NEXT.Choose the cell size that has the maximum variance.
 ```
 
