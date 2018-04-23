@@ -7,17 +7,17 @@ output:
 
 
 ```{r load_packages, include=FALSE, echo=FALSE}
+
 library(tidyverse)
 library(sf)
 library(leaflet)
 library(htmltools)
 library(maptools)
-#library(data.table)
 library(markdown)
-#library(plyr)
-#library(tidyr)
+
 ```
 # Data Preparation
+
 
 This study relies on two main datasets. One corresponds to Spotters' reports extracted 
 from the historic Storm Event Database from NOAA, which is available online. The second 
@@ -40,44 +40,37 @@ only Tweets and reports sent within the two days with more impact reported (Oct/
 which also were the days with reports from both data sources. After filtering, the NWS datasets contains
 only 115 reports and the Twitter dataset contains 74807 tweets. 
 
+
 # Data Analysis
 
-## 1. Load Data
-
-```{r load_data}
+```{r load_prepare_data, include=FALSE, echo=FALSE}
 
 load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
 
+#Prepare dataset to be used in function
 sandySpotIn_sf <- sandySpotIn_sf %>%
-  rename_at("EVENT_ID",~"id")  #Prepare dataset to be used in function
+  rename_at("EVENT_ID",~"id")  
+
 ```
 
-## 2. Create Hexagonal Grid 
 
-Created hexagons at a range of sizes and compare the overall variance in the values across cells. 
-Choose the cell size that has the maximum variance.
+The purpose of this analysis is to estimate the correspondence between the spatial distribution of Twitter reports and that of reports collected in a traditional fashion by the NWS. Grids of hexagons at a range of sizes are used to compare the overall variance in the density of reports across cells. That density is estimated for each data set as follows: 
+
+***
+$\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
+
+
+*** 
+$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$  
+
 
 ```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
 
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
 nHex <- c(h800 = 800, h1000 = 1000, h1200 = 1200,
           h1400 = 1400, h2000 = 2000)
-
-```
-
-```{r create_hexagonal_grids_for, include=FALSE, echo=FALSE}
-
-hexagons <- list()
-
-for (i in nHex){
-  sf_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, n = i, type = "hexagonal")) %>% 
-    st_as_sf(sp_hex)
-  hexagons[[i]] <- sf_hex # Creates a Large list (2000 elements, 5.4 Mb)
-}  
-
-# ggplot() + geom_sf(data = hexagons[[1000]]) # Testing results
 
 ```
 
@@ -91,31 +84,39 @@ creaHex <- function(hexNum) {
 
 hexagons <- lapply(nHex, creaHex)# Creates a Large list (5 elements, 5.5 Mb)
 
-ggplot() + geom_sf(data = hexagons$h800)
-ggplot() + geom_sf(data = hexagons$h2000) 
+# Test lapply function
+# ggplot() + geom_sf(data = hexagons$h800)
+# ggplot() + geom_sf(data = hexagons$h2000) 
 ```
 
 I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
 
-```{r join_hex_and_Reports, include=FALSE, echo=FALSE}
+```{r join_compute_totals, include=FALSE, echo=FALSE}
 
-# Compute the number of hurricane Sandy related NWS reports by hexagon
-
-
-
-#sapply(hexagons, plotHex)
-
-### Manana check sapply with a function of two arguments. Also first check computing totals outside function.
-computeTotals <- function(hex_dfs) {
-  hexWithSpoReports <- st_join(hex_dfs, sandySpotIn_sf) %>%
+# Compute the number of hurricane Sandy reports (NWS and Tweets) by hexagon
+computeTotals <- function(hex_dfs, reports) {
+  hexWithReports <- st_join(hex_dfs, reports) %>%
     group_by(group) %>%
-    summarise(total = sum(!is.na(EVENT_ID))) %>%
+    summarise(total = sum(!is.na(id))) %>%
     mutate(totRatio = total/sum(total))# Add column that normalize totals
-
 }
 
-Totals <- lapply(hexagons, computeTotals)
+TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
+TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
+```
 
+
+```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
+# TOMORROW. I CAN CREATE A NEW FUNCTION HERE. NEED TO CHECK ONE OF MY OLD CODES.
+# Exporting shapefiles to test classification in QGIS
+# Just turn eval to TRUE in case I need it
+st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
+st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
+st_write(sandySpot_sf, "Data/sandySpotReports.shp", 
+         layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
+```
+
+```{r maps, include=FALSE, echo=FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
 pal <- colorBin("YlOrRd", domain = Totals$h800$total, bins = bins)
 
