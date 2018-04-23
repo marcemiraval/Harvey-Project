@@ -60,7 +60,8 @@ Choose the cell size that has the maximum variance.
 ```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
 
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
-nHex <- c(800, 1000, 1200, 1400, 2000)
+nHex <- c(h800 = 800, h1000 = 1000, h1200 = 1200,
+          h1400 = 1400, h2000 = 2000)
 
 ```
 
@@ -88,28 +89,8 @@ creaHex <- function(hexNum) {
 
 hexagons <- lapply(nHex, creaHex)# Creates a Large list (5 elements, 5.5 Mb)
 
-#plot(hexagons[[1]])
-ggplot() + geom_sf(data = hexagons[[1]]) # Not sure why plot works here and not ggplot
-
-```
-
-```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval=FALSE}
-# To create hexagons based on points. -> To make sure every point has its own hexagon
-spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
-sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets, n = 800, type="hexagonal"))
-sf_hexTweets <- st_as_sf(sp_hexTweets)
-```
-
-```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
-# In case I need to project to a planar system. Ask this option
-# EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
-projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
-
-sandySpot_sf <- sandySpot_sf %>% 
-  st_transform(projSandy)
-
-sf_hex <- sf_hex %>% 
-  st_transform(projSandy)
+ggplot() + geom_sf(data = hexagons$h800)
+ggplot() + geom_sf(data = hexagons$h2000) 
 ```
 
 I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
