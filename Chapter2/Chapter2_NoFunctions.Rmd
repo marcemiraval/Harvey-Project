@@ -40,12 +40,17 @@ only Tweets and reports sent within the two days with more impact reported (Oct/
 which also were the days with reports from both data sources. After filtering, the NWS datasets contains
 only 115 reports and the Twitter dataset contains 74807 tweets. 
 
+
 # Data Analysis
 
-```{r load_data, include=FALSE, echo=FALSE}
+```{r load_prepare_data, include=FALSE, echo=FALSE}
 load(file= "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
+
+#Prepare dataset to be used in function
+sandySpotIn_sf <- sandySpotIn_sf %>%
+  rename_at("EVENT_ID",~"id")  
 ```
 
 The purpose of this analysis is to estimate the correspondence between the spatial distribution of Twitter reports and that of reports collected in a traditional fashion by the NWS. Grids of hexagons at a range of sizes are used to compare the overall variance in the density of reports across cells. That density is estimated for each data set as follows: 
@@ -95,7 +100,7 @@ sf_hex <- sf_hex %>%
 # Compute the number of hurricane Sandy related NWS reports by hexagon
 hexWithSpoReports <- st_join(sf_hex, sandySpotIn_sf) %>% 
   group_by(group) %>%
-  summarise(total = sum(!is.na(EVENT_ID))) %>% 
+  summarise(total = sum(!is.na(id))) %>% 
   mutate(totRatio = total/sum(total))# Add column that normalize totals
 
 # Aggregation to hexagons for Tweets. 
@@ -265,10 +270,6 @@ plotTratio <- ggplot(hexWithTweets, aes(totRatio)) +
 grid.arrange(plotStotal, plotSratio, plotTtotal, plotTratio, ncol = 2, nrow =2)
 
 #grid.arrange(plotStotal, plotSratio, ncol = 2)
-```
-
-```{r, warning= FALSE, echo=FALSE}
-## NEXT.Choose the cell size that has the maximum variance.
 ```
 
 
