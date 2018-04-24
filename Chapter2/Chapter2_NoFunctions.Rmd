@@ -16,6 +16,8 @@ library(markdown)
 library(grid)
 library(gridExtra)
 library(mapview)
+library(classInt)
+library(RColorBrewer)
 ```
 # Data Preparation
 
@@ -111,6 +113,13 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
+```{r}
+
+pal1 <- brewer.pal(6, "YlOrRd")
+palData <- classIntervals(hexWithSpoReports$total, n=6, style="jenks")
+hexWithSpoReports$colores <- findColours(palData, pal1)
+```
+
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test classification in QGIS
 # Just turn eval to TRUE in case I need it
@@ -162,6 +171,43 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
 
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
+
+```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE, message= FALSE}
+pal1 <- brewer.pal(7, "YlOrRd")
+palData <- classIntervals(hexWithSpoReports$total, n = 7, style="jenks", pal = pal1)
+hexWithSpoReports$colores <- findColours(palData, pal1)
+
+#%>% 
+ # as.factor(.)
+
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+#factpal <- colorFactor(pal1, hexWithSpoReports$colores)
+
+SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~total, 
+            opacity = 0.7, 
+            title = "# of NWS reports",
+            position = "bottomright")
+
+  
+SandyHexSpotMap  
+# htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+```
+
+
+
 
 ```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE, message= FALSE}
 bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55) # Breaks according to Natural Breaks (Jenks) classification.
