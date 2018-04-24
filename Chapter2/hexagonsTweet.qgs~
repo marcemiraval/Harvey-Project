@@ -1,12 +1,12 @@
 <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
 <qgis projectname="" version="2.8.6-Wien">
   <title></title>
-  <layer-tree-group expanded="1" checked="Qt::Checked" name="">
+  <layer-tree-group expanded="1" checked="Qt::PartiallyChecked" name="">
     <customproperties/>
-    <layer-tree-layer expanded="1" checked="Qt::Checked" id="hexWithTweets20180411120456573" name="hexWithTweets">
+    <layer-tree-layer expanded="1" checked="Qt::Unchecked" id="hexWithTweets20180411120456573" name="hexWithTweets">
       <customproperties/>
     </layer-tree-layer>
-    <layer-tree-layer expanded="0" checked="Qt::Checked" id="hexWithTweets20180331211918342" name="hexWithTweets">
+    <layer-tree-layer expanded="1" checked="Qt::Checked" id="hexWithTweets20180331211918342" name="hexWithTweets">
       <customproperties/>
     </layer-tree-layer>
   </layer-tree-group>
@@ -43,19 +43,19 @@
     </custom-order>
   </layer-tree-canvas>
   <legend updateDrawingOrder="true">
-    <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="hexWithTweets" showFeatureCount="0">
+    <legendlayer drawingOrder="-1" open="true" checked="Qt::Unchecked" name="hexWithTweets" showFeatureCount="0">
       <filegroup open="true" hidden="false">
-        <legendlayerfile isInOverview="0" layerid="hexWithTweets20180411120456573" visible="1"/>
+        <legendlayerfile isInOverview="0" layerid="hexWithTweets20180411120456573" visible="0"/>
       </filegroup>
     </legendlayer>
-    <legendlayer drawingOrder="-1" open="false" checked="Qt::Checked" name="hexWithTweets" showFeatureCount="0">
-      <filegroup open="false" hidden="false">
+    <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="hexWithTweets" showFeatureCount="0">
+      <filegroup open="true" hidden="false">
         <legendlayerfile isInOverview="0" layerid="hexWithTweets20180331211918342" visible="1"/>
       </filegroup>
     </legendlayer>
   </legend>
   <projectlayers layercount="2">
-    <maplayer minimumScale="-4.65661e-10" maximumScale="1e+08" simplifyDrawingHints="1" minLabelScale="0" maxLabelScale="1e+08" simplifyDrawingTol="1" geometry="Polygon" simplifyMaxScale="1" type="vector" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" scaleBasedLabelVisibilityFlag="0">
+    <maplayer minimumScale="0" maximumScale="1e+08" simplifyDrawingHints="1" minLabelScale="0" maxLabelScale="1e+08" simplifyDrawingTol="1" geometry="Polygon" simplifyMaxScale="1" type="vector" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" scaleBasedLabelVisibilityFlag="0">
       <id>hexWithTweets20180331211918342</id>
       <datasource>./hexWithTweets.shp</datasource>
       <title></title>
@@ -96,12 +96,12 @@
       </edittypes>
       <renderer-v2 attr="total" symbollevels="0" type="graduatedSymbol">
         <ranges>
-          <range render="true" symbol="0" lower="0.000000" upper="0.100000" label=" 0.0 - 0.1 "/>
-          <range render="true" symbol="1" lower="0.100000" upper="20.000000" label=" 0.1 - 20.0 "/>
-          <range render="true" symbol="2" lower="20.000000" upper="100.000000" label=" 20.0 - 100.0 "/>
-          <range render="true" symbol="3" lower="100.000000" upper="170.473684" label=" 100.0 - 170.5 "/>
-          <range render="true" symbol="4" lower="170.473684" upper="322.368421" label=" 170.5 - 322.4 "/>
-          <range render="true" symbol="5" lower="322.368421" upper="14481.000000" label=" 322.4 - 14481.0 "/>
+          <range render="true" symbol="0" lower="0.000000" upper="71.000000" label=" 0 - 71 "/>
+          <range render="true" symbol="1" lower="71.000000" upper="242.000000" label=" 71 - 242 "/>
+          <range render="true" symbol="2" lower="242.000000" upper="504.000000" label=" 242 - 504 "/>
+          <range render="true" symbol="3" lower="504.000000" upper="1217.000000" label=" 504 - 1217 "/>
+          <range render="true" symbol="4" lower="1217.000000" upper="3563.000000" label=" 1217 - 3563 "/>
+          <range render="true" symbol="5" lower="3563.000000" upper="20140.000000" label=" 3563 - 20140 "/>
         </ranges>
         <symbols>
           <symbol alpha="1" type="fill" name="0">
@@ -202,10 +202,10 @@
           <prop k="stops" v="0.25;254,204,92,255:0.5;253,141,60,255:0.75;240,59,32,255"/>
         </colorramp>
         <invertedcolorramp value="0"/>
-        <mode name="quantile"/>
+        <mode name="jenks"/>
         <rotation/>
         <sizescale scalemethod="area"/>
-        <labelformat format=" %1 - %2 " trimtrailingzeroes="false" decimalplaces="1"/>
+        <labelformat format=" %1 - %2 " trimtrailingzeroes="false" decimalplaces="0"/>
       </renderer-v2>
       <customproperties>
         <property key="labeling" value="pal"/>
@@ -732,10 +732,10 @@
         <multilineenabled fieldname="" on=""/>
         <selectedonly on=""/>
       </labelattributes>
-      <editform></editform>
+      <editform>.</editform>
       <editforminit/>
       <featformsuppress>0</featformsuppress>
-      <annotationform></annotationform>
+      <annotationform>.</annotationform>
       <editorlayout>generatedlayout</editorlayout>
       <excludeAttributesWMS/>
       <excludeAttributesWFS/>
