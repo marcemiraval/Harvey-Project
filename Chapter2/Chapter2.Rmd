@@ -73,8 +73,8 @@ $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 ```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
 
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
-nHex <- c(h800 = 800, h1000 = 1000, h1200 = 1200,
-          h1400 = 1400, h2000 = 2000)
+nHex <- c(h1000 = 1000, h1500 = 1500, h2000 = 2000, h2500 = 2500, h3000 = 3000,
+          h3500 = 3500, h4000 = 4000, h4500 = 4500, h5000 = 5000, h5500 = 5500)
 
 ```
 
@@ -133,9 +133,15 @@ SandyReportsMap
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
+```{r}
+#HexMapsSpotters <- lapply(TotalsSpotters, mapReports)
+mapReports(TotalsTweets$h1000)
+
+```
 
 
 ```{r, warning= FALSE, echo=FALSE}
 ## NEXT.Choose the cell size that has the maximum variance.
+mapReports(TotalsTweets$h5500)
 ```
 
