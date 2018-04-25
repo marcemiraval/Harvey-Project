@@ -105,25 +105,6 @@ TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
 TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
 ```
 
-
-```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
-# Need a function+lapply for this.
-# Exporting shapefiles to test classification in QGIS
-
-st_write(TotalsSpotters$h800, "Data/hexS800.shp", delete_layer = TRUE)
-st_write(TotalsSpotters$h1000, "Data/hexS1000.shp", delete_layer = TRUE)
-st_write(TotalsSpotters$h1200, "Data/hexS1200.shp", delete_layer = TRUE)
-st_write(TotalsSpotters$h1400, "Data/hexS1400.shp", delete_layer = TRUE)
-st_write(TotalsSpotters$h2000, "Data/hexS2000.shp", delete_layer = TRUE)
-st_write(TotalsTweets$h800, "Data/hexT800.shp", delete_layer = TRUE)
-st_write(TotalsTweets$h1000, "Data/hexT1000.shp", delete_layer = TRUE)
-st_write(TotalsTweets$h1200, "Data/hexT1200.shp", delete_layer = TRUE)
-st_write(TotalsTweets$h1400, "Data/hexT1400.shp", delete_layer = TRUE)
-st_write(TotalsTweets$h2000, "Data/hexT2000.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "Data/sandySpotReports.shp", 
-         layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
-```
-
 ```{r maps, include=FALSE, echo=FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
 pal <- colorBin("YlOrRd", domain = Totals$h800$total, bins = bins)
