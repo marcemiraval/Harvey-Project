@@ -113,13 +113,6 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
-```{r}
-
-pal1 <- brewer.pal(6, "YlOrRd")
-palData <- classIntervals(hexWithSpoReports$total, n=6, style="jenks")
-hexWithSpoReports$colores <- findColours(palData, pal1)
-```
-
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test classification in QGIS
 # Just turn eval to TRUE in case I need it
@@ -148,11 +141,11 @@ htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 
 ### NWS Reports and Tweets' Distribution    
 
-```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE, message= FALSE}
+```{r mapHexSandy_spotters_manual, warning= FALSE, echo=FALSE, message= FALSE, eval= FALSE}
 bins <- c(0, 1, 2, 3, 4, 5, 6, 8)
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
 
-SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
+SandyHexSpotMapMan <- leaflet(hexWithSpoReports) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addPolygons(fillColor = ~pal(total),
@@ -168,18 +161,18 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
             opacity = 0.7, 
             title = "# of NWS reports",
             position = "bottomright")
-
+SandyHexSpotMapMan
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 
 ```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE, message= FALSE}
-pal1 <- brewer.pal(7, "YlOrRd")
-palData <- classIntervals(hexWithSpoReports$total, n = 7, style="jenks", pal = pal1)
-hexWithSpoReports$colores <- findColours(palData, pal1)
-
-#%>% 
- # as.factor(.)
-
+classes <- 6
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithSpoReports$total, n = classes, style=style_method, pal = pal1)
+hexWithSpoReports$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+# palData$brks
 pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
 
 #factpal <- colorFactor(pal1, hexWithSpoReports$colores)
@@ -201,20 +194,18 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
             title = "# of NWS reports",
             position = "bottomright")
 
-  
-SandyHexSpotMap  
 # htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 
 
 
 
-```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE, message= FALSE}
+```{r mapHexSandy_spotters_Norm_manual, warning= FALSE, echo=FALSE, message= FALSE, eval= FALSE}
 bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55) # Breaks according to Natural Breaks (Jenks) classification.
 
 pal <- colorBin("YlOrRd", domain = hexWithSpoReports$totRatio, bins = bins)
 
-SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
+SandyHexSpotNorMapMan <- leaflet(hexWithSpoReports) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addPolygons(fillColor = ~pal(totRatio),
@@ -231,8 +222,43 @@ SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
             title = "NWS Reports Density",
             position = "bottomright")
 
+SandyHexSpotNorMapMan
 # htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
 ```
+
+
+```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE, message= FALSE}
+classes <- 6
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithSpoReports$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithSpoReports$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+# palData$brks
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+#factpal <- colorFactor(pal1, hexWithSpoReports$colores)
+
+SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
+                                          totRatio))) %>%
+  addLegend(pal = pal2,
+            values = ~totRatio, 
+            opacity = 0.7, 
+            title = "NWS Reports Density",
+            position = "bottomright")
+
+# htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
+```
+
 
 ```{r, warning= FALSE, echo=FALSE}
 sync(SandyHexSpotMap, SandyHexSpotNorMap)
@@ -241,11 +267,11 @@ sync(SandyHexSpotMap, SandyHexSpotNorMap)
 ***  
 
 
-```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
+```{r mapHexSandy_Tweets_manual, warning= FALSE, echo=FALSE, message= FALSE, eval= FALSE}
 binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 24000)
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$total, bins = binsTweets)
 
-SandyHexTweetMap <- leaflet(hexWithTweets) %>%
+SandyHexTweetMapMan <- leaflet(hexWithTweets) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addPolygons(fillColor = ~palTweets(total),
@@ -261,16 +287,51 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
             title = "# of Tweets",
             position = "bottomright")
 
+SandyHexTweetMapMan
 # htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 ```
 
-```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE, message= FALSE}
+
+```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE, message= FALSE}
+classes <- 7
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithTweets$total, n = classes, style=style_method, pal = pal1)
+hexWithTweets$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+# palData$brks
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+#factpal <- colorFactor(pal1, hexWithSpoReports$colores)
+
+SandyHexTweetMap <- leaflet(hexWithTweets) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~total, 
+            opacity = 0.7, 
+            title = "# of Tweets",
+            position = "bottomright")
+
+htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
+
+```
+
+```{r mapHexSandyNormTweets_manual, warning= FALSE, echo=FALSE, message= FALSE, eval= FALSE}
 
 binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3250)  # Breaks according to Natural Breaks (Jenks) classification.
 
 palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
 
-SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
+SandyHexTweetNorMapMan <- leaflet(hexWithTweets) %>%
   setView(-74.9, 40.4, 6) %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addPolygons(fillColor = ~palTweets(totRatio),
@@ -282,6 +343,40 @@ SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
               popup = ~htmlEscape(sprintf("Tweets per hexagon: %f", 
                                           totRatio))) %>% 
   addLegend(pal = palTweets, 
+            values = ~totRatio, 
+            opacity = 0.7, 
+            title = "Tweets Density",
+            position = "bottomright")
+
+SandyHexTweetNorMapMan
+
+# htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
+```
+
+```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE, message= FALSE}
+classes <- 7
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithTweets$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithTweets$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+# palData$brks
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+#factpal <- colorFactor(pal1, hexWithSpoReports$colores)
+
+SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
+  setView(-74.9, 40.4, 6) %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
+                                          totRatio))) %>%
+  addLegend(pal = pal2,
             values = ~totRatio, 
             opacity = 0.7, 
             title = "Tweets Density",
