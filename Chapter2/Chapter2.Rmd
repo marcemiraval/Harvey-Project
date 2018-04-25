@@ -14,7 +14,11 @@ library(leaflet)
 library(htmltools)
 library(maptools)
 library(markdown)
-
+library(grid)
+library(gridExtra)
+library(mapview)
+library(classInt)
+library(RColorBrewer)
 ```
 # Data Preparation
 
@@ -84,9 +88,7 @@ creaHex <- function(hexNum) {
 
 hexagons <- lapply(nHex, creaHex)# Creates a Large list (5 elements, 5.5 Mb)
 
-# Test lapply function
-# ggplot() + geom_sf(data = hexagons$h800)
-# ggplot() + geom_sf(data = hexagons$h2000) 
+# ggplot() + geom_sf(data = hexagons$h800) # To test lapply function
 ```
 
 I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
@@ -105,44 +107,11 @@ TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
 TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
 ```
 
-```{r maps, include=FALSE, echo=FALSE}
-bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
-pal <- colorBin("YlOrRd", domain = Totals$h800$total, bins = bins)
-
-SandyHexSpotMap <- leaflet(Totals$h800) %>%
-  setView(-74.9, 40.4, 6) %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~pal(total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
-  addLegend(pal = pal, 
-            values = ~total, 
-            opacity = 0.7, 
-            title = "Number of NWS reports",
-            position = "bottomright")
-
-SandyHexSpotMap
-
-
-
-# Computing the number of hurricane Sandy related Tweets by hexagon
-hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>% 
-  group_by(group) %>% 
-  summarise(total = sum(!is.na(id))) %>% 
-  mutate(totRatio = total/sum(total))
-
-```
-
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
-# Exporting shapefiles to test in QGIS
-# Just turn eval to TRUE in case I need it
-st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE)
-st_write(hexWithTweets, "hexWithTweets.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
+# Examples exporting files as shapefiles
+st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE) # A single file with polygons
+st_write(TotalsTweets$h800 , "hexWithTweets.shp800", delete_layer = TRUE) # A polygons spatial data frame from a list
+st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE) # A single files with points
 ```
 
 ```{r map_colo_reports, echo=FALSE, eval=FALSE}
@@ -185,124 +154,16 @@ SandyReportsMap
 htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
-***
 
-Aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
-
-```{r mapHexSandy_spotters, warning= FALSE, echo=FALSE}
-bins <- c(0, 1, 2, 3, 4, 5, 6, 7)
-pal <- colorBin("YlOrRd", domain = hexWithSpoReports$total, bins = bins)
-
-SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
-  setView(-74.9, 40.4, 6) %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~pal(total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",total))) %>%
-  addLegend(pal = pal, 
-            values = ~total, 
-            opacity = 0.7, 
-            title = "Number of NWS reports",
-            position = "bottomright")
-
-SandyHexSpotMap
-# htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
-```
-***
-
-Normalizing aggregation to hexagons for NWS reports. 800 hexagons covering area of study.
+Normalizing aggregation to hexagons for NWS reports. 
 
 $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 
-
-```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE}
-bins <- c(0, 0.001, 0.009, 0.018, 0.027, 0.036, 0.55) # Breaks according to Natural Breaks (Jenks) classification.
-
-pal <- colorBin("YlOrRd", domain = hexWithSpoReports$totRatio, bins = bins)
-
-SandyHexSpotNorMap <- leaflet(hexWithSpoReports) %>%
-  setView(-74.9, 40.4, 6) %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~pal(totRatio),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",totRatio))) %>%
-  addLegend(pal = pal, 
-            values = ~totRatio, 
-            opacity = 0.7, 
-            title = "Ratio of NWS reports",
-            position = "bottomright")
-
-SandyHexSpotNorMap
-htmlwidgets::saveWidget(SandyHexSpotNorMap, file = "SandyHexSpotNorMap.html")
-```
-
 *** 
 
-Aggregation to hexagons for tweets. 800 hexagons covering area of study.
-
-```{r mapHexSandy_Tweets, warning= FALSE, echo=FALSE}
-binsTweets <- c(0, 1, 20, 100, 170, 322, 14500, 22000)
-palTweets <- colorBin("YlOrRd", domain = hexWithTweets$total, bins = binsTweets)
-
-SandyHexTweetMap <- leaflet(hexWithTweets) %>%
-  setView(-74.9, 40.4, 6) %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~palTweets(total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
-  addLegend(pal = palTweets, 
-            values = ~total, 
-            opacity = 0.7, 
-            title = "Number of Tweets",
-            position = "bottomright")
-
-SandyHexTweetMap
-# htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
-```
-
-*** 
-
-Normalizing aggregation to hexagons for tweets. 800 hexagons covering area of study.
+Normalizing aggregation to hexagons for tweets. 
 
 $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
-
-```{r mapHexSandyNormTweets, warning= FALSE, echo=FALSE}
-
-binsTweets <- c(0, 0.00096, 0.00327, 0.00682, 0.01647, 0.04823, 0.3000)  # Breaks according to Natural Breaks (Jenks) classification.
-
-palTweets <- colorBin("YlOrRd", domain = hexWithTweets$totRatio, bins = binsTweets)
-
-SandyHexTweetNorMap <- leaflet(hexWithTweets) %>%
-  setView(-74.9, 40.4, 6) %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addPolygons(fillColor = ~palTweets(totRatio),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Tweets per hexagon: %i", total))) %>% ## This is no working but have no idea!
-  addLegend(pal = palTweets, 
-            values = ~totRatio, 
-            opacity = 0.7, 
-            title = "Ratio of Tweets",
-            position = "bottomright")
-
-SandyHexTweetNorMap
-# htmlwidgets::saveWidget(SandyHexTweetNorMap, file = "SandyHexTweetNorMap.html")
-```
 
 ```{r, warning= FALSE, echo=FALSE}
 ## NEXT.Choose the cell size that has the maximum variance.
