@@ -114,27 +114,6 @@ st_write(TotalsTweets$h800 , "hexWithTweets.shp800", delete_layer = TRUE) # A po
 st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE) # A single files with points
 ```
 
-```{r map_colo_reports, echo=FALSE, eval=FALSE}
-coloSpot_sf <-  st_as_sf(coloSpot, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326)
-coloTweets_sf <-  st_as_sf(coloradoT, coords = c("lon", "lat"), crs = 4326)
-
-
-coloReportsMap <- leaflet(coloTweets_sf) %>% 
-  addTiles()  %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
-      addCircles(weight = 3, radius=40,
-                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(tweet)) %>%
-      addCircles(data = coloSpot_sf, weight = 3, radius=40,
-                 color="red", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
-      setView(lng = -105.9, lat = 39.3, zoom = 8)
-
-coloReportsMap
-
-htmlwidgets::saveWidget(coloReportsMap, file = "coloReportsMap.html")
-```
-
 ```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
 # With EVAL false the map is not loading
 
@@ -155,15 +134,6 @@ htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
 
-Normalizing aggregation to hexagons for NWS reports. 
-
-$\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
-
-*** 
-
-Normalizing aggregation to hexagons for tweets. 
-
-$\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 
 ```{r, warning= FALSE, echo=FALSE}
 ## NEXT.Choose the cell size that has the maximum variance.
