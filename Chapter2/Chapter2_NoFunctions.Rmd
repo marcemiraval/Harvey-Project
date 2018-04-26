@@ -116,7 +116,7 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
 ```{r compute_sd, include= FALSE, echo=FALSE}
 # Manual attempt to get sd
 TweetsSdManual <- hexWithTweets %>% 
-  mutate(dif = total - mean(total)) %>% 
+  mutate(dif = totRatio - mean(totRatio)) %>% 
   mutate(sq = dif^2)
 
 nume <- sum(TweetsSdManual$sq)
@@ -126,10 +126,10 @@ sd1 <- sqrt(var1)
 
 
 # Getting sd with function
-sd <- hexWithTweets$total %>%
+sd <- hexWithTweets$totRatio %>%
   sd(.) # this uses n-1 as denominator
 
-varr <- hexWithTweets$total %>% 
+varr <- hexWithTweets$totRatio %>% 
   var(.) # this uses n-1 as denominator
 
 ```
