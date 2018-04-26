@@ -1,4 +1,4 @@
-MapReports <- function(hexSpecSize){
+mapReports <- function(hexSpecSize){
   
   classes <- 7
   style_method <- "fisher"
