@@ -113,6 +113,28 @@ hexWithTweets <- st_join(sf_hex, sandyTweetsIn_sf) %>%
   mutate(totRatio = total/sum(total))
 ```
 
+```{r compute_sd, include= FALSE, echo=FALSE}
+# Manual attempt to get sd
+TweetsSdManual <- hexWithTweets %>% 
+  mutate(dif = total - mean(total)) %>% 
+  mutate(sq = dif^2)
+
+nume <- sum(TweetsSdManual$sq)
+n <- length(TweetsSdManual$sq)
+var1 <- nume/(n-1)
+sd1 <- sqrt(var1)
+
+
+# Getting sd with function
+sd <- hexWithTweets$total %>%
+  sd(.) # this uses n-1 as denominator
+
+varr <- hexWithTweets$total %>% 
+  var(.) # this uses n-1 as denominator
+
+```
+
+
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Exporting shapefiles to test classification in QGIS
 st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
