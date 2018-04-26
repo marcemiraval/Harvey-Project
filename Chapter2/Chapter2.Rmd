@@ -134,7 +134,7 @@ htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
 ```
 
 ```{r}
-#HexMapsSpotters <- lapply(TotalsSpotters, mapReports)
+source("mapReports.R")
 mapReports(TotalsTweets$h1000)
 
 ```
