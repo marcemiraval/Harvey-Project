@@ -16,7 +16,7 @@ storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
 ```
 
 ```{r load_data_Twitter, include=FALSE, echo=FALSE}
-sandyTweets <- read_csv("Sandy_Clean.csv")
+sandyTweets <- read_csv("Data/Sandy_Clean.csv")
 ```
 
 ```{r load_spatial_data, include=FALSE, echo=FALSE}
@@ -52,6 +52,8 @@ sandyTweetsIn <- sandyTweets %>%
          create_time = created_at, 
          state = c_state,
          id = id,
+         u_id = u_id,
+         u_description = u_description,
          tweet = text) %>% 
   filter(state %in% states_sandy) %>%
   filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
