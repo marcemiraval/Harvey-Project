@@ -9,6 +9,8 @@ output:
 ```{r load_packages, include=FALSE, echo=FALSE}
 library(tidyverse)
 library(sf)
+library(sp)
+library(rgeos)
 library(leaflet)
 library(htmltools)
 library(maptools)
@@ -18,6 +20,7 @@ library(gridExtra)
 library(mapview)
 library(classInt)
 library(RColorBrewer)
+library(geogrid)
 ```
 # Data Preparation
 
@@ -68,12 +71,27 @@ $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 ```{r create_hexagonal_boundary_grid, include=FALSE, echo=FALSE}
 # 800 hexagons covering area of study.
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
+
+sp_hex1 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, type = "hexagonal", cellsize = 0.3))
+
+plot(sp_hex1)
 sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
                                              n=800, 
                                              type="hexagonal"))
+plot(sp_hex)
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
 ```
+
+```{r}
+par(mfrow = c(2, 3), mar = c(0, 0, 2, 0))
+for (i in 1:6) {
+  new_cells <- calculate_grid(shape = sandy_boundary_sp, grid_type = "hexagonal", seed = i)
+  plot(new_cells, main = paste("Seed", i, sep = " "))
+}
+calculate_grid(shape =sandyTweetsIn_sf, grid_type = "hexagonal", seed = 1)
+```
+
 
 ```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval= FALSE}
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
