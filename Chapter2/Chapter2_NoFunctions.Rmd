@@ -21,6 +21,7 @@ library(mapview)
 library(classInt)
 library(RColorBrewer)
 library(geogrid)
+library(units)
 ```
 # Data Preparation
 
@@ -72,15 +73,33 @@ $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 # 800 hexagons covering area of study.
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
 
-sp_hex1 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, type = "hexagonal", cellsize = 0.3))
-
-plot(sp_hex1)
 sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
                                              n=800, 
                                              type="hexagonal"))
-plot(sp_hex)
+
+sp_hex1 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
+                                              type = "hexagonal", 
+                                              cellsize = 0.1))
+
+sp_hex2 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
+                                              type = "hexagonal", 
+                                              cellsize = 0.3, 
+                                              pretty = TRUE))
+
+
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
+
+sf_hex1 <- st_as_sf(sp_hex1) %>% 
+  mutate(group = 1:nrow(.))
+
+sf_hex2 <- st_as_sf(sp_hex2) %>% 
+  mutate(group = 1:nrow(.))
+
+
+ggplot() + geom_sf(data = sf_hex)
+ggplot() + geom_sf(data = sf_hex1)
+ggplot() + geom_sf(data = sf_hex2)
 ```
 
 ```{r}
