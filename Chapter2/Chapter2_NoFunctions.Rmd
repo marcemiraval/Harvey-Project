@@ -70,7 +70,7 @@ $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$  
 
 
-```{r create_hexagonal_boundary_grid, include=FALSE, echo=FALSE}
+```{r create_hexagonal_boundary_grid_proj, include=FALSE, echo=FALSE}
 
 # The calculate_grid function didn't work for me until I get multipolygon dataframe
 
@@ -78,39 +78,38 @@ $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$
 projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
 
 sandy_boundary_sf <- sandy_boundary_sf %>% 
-  st_transform(projSandy)
+  st_transform_proj(projSandy)
 
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
 
 sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
                                              n=800, 
-                                             type="hexagonal"))
+                                             type="hexagonal")) # Define number of hex
 
-sp_hex1 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
+sp_hex10000 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
                                               type = "hexagonal", 
-                                              cellsize = 50000))
+                                              cellsize = 10000)) # Define cellsize. 
 
-sp_hex2 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
-                                              type = "hexagonal", 
-                                              cellsize = 0.3, 
-                                              pretty = TRUE))
-
+# I should try cellsize varying from 5000 to 25000. Each 5000.
 
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
 
-sf_hex1 <- st_as_sf(sp_hex1) %>% 
-  mutate(group = 1:nrow(.))
-
-sf_hex2 <- st_as_sf(sp_hex2) %>% 
+sf_hex10000 <- st_as_sf(sp_hex1) %>% 
   mutate(group = 1:nrow(.))
 
 
-ggplot() + geom_sf(data = sf_hex)
+ggplot(data = sf_hex) + geom_sf()+
+  coord_sf(xlim = c(937758.7, 2137758.7), 
+           ylim = c(-256887.3, 1114319.6),
+           datum = st_crs(projSandy),
+           ndiscr = 10)
 
-ggplot() + geom_sf(data = sf_hex1) + coord_sf(crs = st_crs(projSandy))
-
-ggplot() + geom_sf(data = sf_hex2)
+ggplot(data = sf_hex10000) + geom_sf() + 
+  coord_sf(xlim = c(937758.7, 2137758.7), 
+           ylim = c(-256887.3, 1114319.6),
+           datum = st_crs(projSandy),
+           ndiscr = 10) # xlim defined through st_bbox(sf_hex10000)
 ```
 
 ```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval= FALSE}
