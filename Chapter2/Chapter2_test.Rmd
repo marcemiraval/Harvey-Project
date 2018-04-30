@@ -1,0 +1,63 @@
+---
+title: "Chapter2_test"
+author: "Marcela Suarez"
+date: "April 30, 2018"
+output: html_document
+---
+
+
+```{r load_packages, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(sf)
+library(lwgeom) #compute area polygon
+library(leaflet)
+library(htmltools)
+library(maptools)
+library(markdown)
+library(grid)
+library(gridExtra)
+library(mapview)
+library(classInt)
+library(RColorBrewer)
+```
+
+# Data Analysis
+
+```{r load_prepare_data, include=FALSE, echo=FALSE}
+load(file= "Data/sandy_boundary_sf.RData")
+load(file = "Data/sandySpotIn_sf.RData")
+load(file = "Data/sandyTweetsIn_sf.RData")
+
+#Prepare dataset to be used in function
+sandySpotIn_sf <- sandySpotIn_sf %>%
+  rename_at("EVENT_ID",~"id")  
+```
+
+
+```{r list_hexagons_possibilities_boundary_grid_proj, include=FALSE, echo=FALSE}
+projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+sandy_boundary_sf <- sandy_boundary_sf %>% 
+  st_transform_proj(projSandy)
+
+sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
+
+hexSize <- c(hs5000 = 5000, hs10000 = 10000, hs15000 = 15000, 
+             hs20000 = 20000, hs25000 = 25000)
+```
+
+
+```{r create_hexagonal_grids_sapply, include=FALSE, echo=FALSE}
+
+creaHex <- function(cellSize) {
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp,
+                                               type = "hexagonal",
+                                               cellsize = cellSize))
+  sf_hex <- st_as_sf(sp_hex) %>%
+    mutate(group = 1:nrow(.))
+  }
+
+hexagons <- lapply(hexSize, creaHex)
+
+```
+
