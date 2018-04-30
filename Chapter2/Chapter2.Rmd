@@ -70,6 +70,12 @@ $\frac{Number\ of\ Reports\ by\ Hexagon}{Total\ Number\ of\ Reports}$
 *** 
 $\frac{Number\ of\ Tweets\ by\ Hexagon}{Total\ Number\ of\ Tweets}$  
 
+***
+
+In order to vary the cellsize or hexagons size, 32 hexagonal grids covering the area of study with the following different numbers of hexagons were created:
+100, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000,
+5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000, 10500,
+11000, 11500, 12000, 12500, 13000, 13500, 14000, 14500, 15000, 15500
 
 ```{r list_hexagons_possibilities, include=FALSE, echo=FALSE}
 
@@ -96,11 +102,9 @@ creaHex <- function(hexNum) {
   }
 
 hexagons <- lapply(nHex, creaHex)# Creates a Large list (5 elements, 5.5 Mb)
-
-# ggplot() + geom_sf(data = hexagons$h800) # To test lapply function
 ```
 
-I get all counts of tweets based on hexagons definition. So I am adding reports information to hexagon information, not the opposite.
+In order to count reports per hexagon, reports information (tweets and NWS reports) was added (joined) to the hexagons.
 
 ```{r join_compute_totals, include=FALSE, echo=FALSE}
 
@@ -116,10 +120,73 @@ TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
 TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
 ```
 
-```{r sd, include=FALSE, echo=FALSE}
+```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
+# Examples exporting files as shapefiles
+st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE) # A single file with polygons
+st_write(TotalsTweets$h800 , "hexWithTweets.shp800", delete_layer = TRUE) # A polygons spatial data frame from a list
+st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE) # A single files with points
+```
+
+```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
+# With EVAL false the map is not loading
+
+SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>% 
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
+      addCircles(weight = 3, radius=40,
+                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(tweet)) %>%
+      addCircles(data = sandySpot_sf, weight = 3, radius=40,
+                 color="red", stroke = TRUE, fillOpacity = 0.8,
+                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
+      setView(lng = -74.9, lat = 40.4, zoom = 6)
+
+SandyReportsMap
+
+htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
+```
+
+Some of the map comparisons between total of tweets and density of tweets at different cell number levels were created and presented as follows:
+
+#### 100 hexagons covering the area of study
+
+```{r 100hexMaps, warning= FALSE, echo=FALSE}
+source("mapReports.R")
+mapReports(TotalsTweets$h100)
+```
+
+#### 1000 hexagons covering the area of study
+
+```{r 1000hexMaps, warning= FALSE, echo=FALSE}
+source("mapReports.R")
+mapReports(TotalsTweets$h1000)
+```
+
+#### 5500 hexagons covering the area of study
+
+```{r 5500hexMaps, warning= FALSE, echo=FALSE}
+## NEXT.Choose the cell size that has the maximum variance.
+mapReports(TotalsTweets$h5500)
+```
+
+#### 8000 hexagons covering the area of study
+
+```{r 8000hexMaps,warning= FALSE, echo=FALSE}
+source("mapReports.R")
+mapReports(TotalsTweets$h8000)
+```
+
+#### 15500 hexagons covering the area of study
+
+```{r 15500hexMaps,warning= FALSE, echo=FALSE}
+source("mapReports.R")
+mapReports(TotalsTweets$h15500)
+```
+
+```{r sd, include=FALSE, echo=FALSE }
 # Getting sd with function
-sd <- hexWithTweets$totRatio %>%
-  sd(.) # this uses n-1 as denominator
+#sd <- hexWithTweets$totRatio %>%
+#  sd(.) # this uses n-1 as denominator
 
 # d1 <- data.frame(x = c(1, 5, 6), y = c(2, 4, 3))
 # d2 <- data.frame(x = c(3, 5, 6), y = c(7, 4, 3))
@@ -173,62 +240,16 @@ sd_list = c(sd100, sd500, sd1000, sd1500, sd2000, sd2500, sd3000, sd3500, sd4000
             sd13000, sd13500,sd14000, sd14500, sd15000, sd15500)
 
 sd_df <- data.frame(x = HexDiameter, y = sd_list)
-                 
-ggplot(sd_df, aes(x = HexDiameter, y = sd_list)) +
-  geom_line() + geom_point() +
-  labs(x = "Hexagon's Diameter (m)", y = "sd")
+```
+
+***
+#### Hexagons' diameter versus overall standard deviation in the density of reports. Hexagons' diameters were calculated based on the range of number of hexagons covering the area of study. 
+
+```{r sd_plot, warning= FALSE, echo=FALSE }
+sd_plot <- ggplot(sd_df, aes(x = HexDiameter, y = sd_list)) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "sd")
   
-```
-
-
-```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
-# Examples exporting files as shapefiles
-st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE) # A single file with polygons
-st_write(TotalsTweets$h800 , "hexWithTweets.shp800", delete_layer = TRUE) # A polygons spatial data frame from a list
-st_write(sandySpot_sf, "sandySpotReports.shp", layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE) # A single files with points
-```
-
-```{r map_Sandy_reports, echo=FALSE, eval=FALSE} 
-# With EVAL false the map is not loading
-
-SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>% 
-  addTiles()  %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite)%>% 
-      addCircles(weight = 3, radius=40,
-                 color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(tweet)) %>%
-      addCircles(data = sandySpot_sf, weight = 3, radius=40,
-                 color="red", stroke = TRUE, fillOpacity = 0.8,
-                 popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
-      setView(lng = -74.9, lat = 40.4, zoom = 6)
-
-SandyReportsMap
-
-htmlwidgets::saveWidget(SandyReportsMap, file = "SandyReportsMap2.html")
-```
-
-
-```{r}
-source("mapReports.R")
-mapReports(TotalsTweets$h100)
-
-```
-
-```{r}
-source("mapReports.R")
-mapReports(TotalsTweets$h1000)
-
-```
-
-
-```{r, warning= FALSE, echo=FALSE}
-## NEXT.Choose the cell size that has the maximum variance.
-mapReports(TotalsTweets$h5500)
-```
-
-
-```{r}
-source("mapReports.R")
-mapReports(TotalsTweets$h8000)
-
+sd_plot
 ```
