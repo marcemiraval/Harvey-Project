@@ -81,8 +81,8 @@ st_crs(sandy_boundary)
 ```
 
 ```{r}
-save(sandy_boundary, file="sandy_boundary.RData")
-save(sandySpotIn_sf, file="sandySpotIn_sf.RData")
-save(sandyTweetsIn_sf, file="sandyTweetsIn_sf.RData")
+save(sandy_boundary, file="Data/sandy_boundary.RData")
+save(sandySpotIn_sf, file="Data/sandySpotIn_sf.RData")
+save(sandyTweetsIn_sf, file="Data/sandyTweetsIn_sf.RData")
 ```
 
