@@ -76,7 +76,8 @@ computeTotals <- function(hex_dfs, reports) {
   hexWithReports <- st_join(hex_dfs, reports) %>%
     group_by(group) %>%
     summarise(total = sum(!is.na(id))) %>%
-    mutate(totRatio = total/sum(total))# Add column that normalize totals
+    mutate(totRatio = total/sum(total)) %>% # Add column that normalize totals
+    filter(total != 0)
 }
 
 TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
@@ -119,6 +120,16 @@ sd_plot <- ggplot(sd_df, aes(x = HexSizes, y = sd_list)) +
 sd_plot
 ```
 
+
+```{r sd_plot_log, warning= FALSE, echo=FALSE }
+sd_plot <- ggplot(sd_df, aes(x = HexSizes, y = log(sd_list))) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "log(sd)")
+  
+sd_plot
+```
+
 ```{r var, warning= FALSE, echo=FALSE}
 var5000 <- var(TotalsTweets$hs5000$totRatio)
 var10000 <- var(TotalsTweets$hs10000$totRatio)
@@ -151,6 +162,16 @@ var_plot <- ggplot(var_df, aes(x = HexSizes, y = var_list)) +
   geom_line() + 
   geom_point(size = 1, color = "#dd1c77") +
   labs(x = "Hexagons' Diameter (m)", y = "var")
+  
+var_plot
+```
+
+
+```{r var_plot_log, warning= FALSE, echo=FALSE }
+var_plot <- ggplot(var_df, aes(x = HexSizes, y = log(var_list))) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "log(var)")
   
 var_plot
 ```
