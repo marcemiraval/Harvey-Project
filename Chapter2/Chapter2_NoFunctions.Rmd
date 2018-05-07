@@ -86,16 +86,16 @@ sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp,
                                              n=800, 
                                              type="hexagonal")) # Define number of hex
 
-sp_hex10000 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
+sp_hex100000 <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp, 
                                               type = "hexagonal", 
-                                              cellsize = 10000)) # Define cellsize. 
+                                              cellsize = 100000)) # Define cellsize. 
 
 # I should try cellsize varying from 5000 to 25000. Each 5000.
 
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
 
-sf_hex10000 <- st_as_sf(sp_hex1) %>% 
+sf_hex100000 <- st_as_sf(sp_hex100000) %>% 
   mutate(group = 1:nrow(.))
 
 
@@ -105,7 +105,7 @@ ggplot(data = sf_hex) + geom_sf()+
            datum = st_crs(projSandy),
            ndiscr = 10)
 
-ggplot(data = sf_hex10000) + geom_sf() + 
+ggplot(data = sf_hex100000) + geom_sf() + 
   coord_sf(xlim = c(937758.7, 2137758.7), 
            ylim = c(-256887.3, 1114319.6),
            datum = st_crs(projSandy),
