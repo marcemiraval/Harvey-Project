@@ -76,8 +76,7 @@ computeTotals <- function(hex_dfs, reports) {
   hexWithReports <- st_join(hex_dfs, reports) %>%
     group_by(group) %>%
     summarise(total = sum(!is.na(id))) %>%
-    mutate(totRatio = total/sum(total)) %>% # Add column that normalize totals
-    filter(total != 0)
+    mutate(totRatio = total/sum(total)) # Add column that normalize totals
 }
 
 TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
