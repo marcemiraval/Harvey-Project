@@ -120,6 +120,16 @@ TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
 TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
 ```
 
+```{r save_datasets, include= FALSE, echo= FALSE}
+save(TotalsSpotters, file="Data/TotalsSpotters.Rdata")
+save(TotalsTweets, file="Data/TotalsTweets.Rdata")
+```
+
+```{r load_totals_datasets, include=FALSE, echo=FALSE}
+load(file= "Data/sandy_boundary_sf.RData")
+load(file = "Data/sandySpotIn_sf.RData")
+```
+
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Examples exporting files as shapefiles
 st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE) # A single file with polygons
