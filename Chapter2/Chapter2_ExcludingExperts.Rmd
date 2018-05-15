@@ -1,0 +1,37 @@
+---
+title: "Chapter2_ExcludeExperts"
+author: "Marcela Suarez"
+date: "April 28, 2018"
+output: html_document
+---
+
+```{r load_packages, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(stringr)
+library(sf)
+
+```
+
+```{r load_data, include=FALSE, echo=FALSE}
+load(file = "Data/sandyTweetsIn_sf.RData")
+```
+
+# Identity users' role/job
+
+In pseudocode, we can think of a process as:
+
+```
+sandyTweetsIn_sf$users <- sandyTweetsIn_sf$u_description %>%
+  remove puntuation %>% 
+  convert to lowercase %>% 
+  filter and detect certain keywords
+  
+sandyTweets_experts <- select tweets containing those keywords
+  
+```
+
+
+```{r}
+
+```
+
