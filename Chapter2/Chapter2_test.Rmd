@@ -19,6 +19,7 @@ library(gridExtra)
 library(mapview)
 library(classInt)
 library(RColorBrewer)
+library(spdep)
 ```
 
 # Data Analysis
@@ -117,6 +118,19 @@ sd_plot <- ggplot(sd_df, aes(x = HexSizes, y = sd_list)) +
   labs(x = "Hexagons' Diameter (m)", y = "sd")
   
 sd_plot
+```
+```{r moran, warning= FALSE, echo=FALSE}
+sd5000 <- sd(TotalsTweets$hs5000$totRatio)
+
+data(oldcol)
+col.W <- nb2listw(COL.nb, style="W")
+crime <- COL.OLD$CRIME
+str(moran(crime, col.W, length(COL.nb), Szero(col.W)))
+is.na(crime) <- sample(1:length(crime), 10)
+str(moran(crime, col.W, length(COL.nb), Szero(col.W), NAOK=TRUE))
+
+moranW5000 <- nb2listw((TotalsTweets$hs5000$totRatio), style = "W")
+
 ```
 
 
