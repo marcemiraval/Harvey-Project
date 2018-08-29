@@ -30,23 +30,18 @@ Outline Of The Chapters
 
 
 
-Chapter 2
+Title
 ========================================================
 
-```{r load_totals_datasets, include=FALSE, echo=FALSE}
+```{r}
+library(mapview)
+mapview(breweries)
+```
 
-library(RColorBrewer)
-library(classInt)
-library(dplyr)
-library(leaflet) #colorBin function
-library(htmltools)
-library(mapview) #sync function
 
-load(file= "Chapter2/Data/sandy_boundary_sf.RData")
-load(file = "Chapter2/Data/sandySpotIn_sf.RData")
-load(file = "Chapter2/Data/TotalsTweets.Rdata")
 
-source("Chapter2/mapReports.R")
+Chapter 3
+========================================================
 
-mapReports(TotalsTweets$h100)
+```{r test-main, map1='map1.Rmd'}
 ```
