@@ -82,7 +82,7 @@ sandy_boundary_area <- st_area(sandy_boundary_sf)
 
 sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial") # This doesn't go in data preparation because I guess I will use the sf version of the file later.
 
-nHex <- c(h100 = 100, h500 = 500, h1000 = 1000, h1500 = 1500, h2000 = 2000, 
+nHex <- c(h500 = 500, h1000 = 1000, h1500 = 1500, h2000 = 2000, 
           h2500 = 2500, h3000 = 3000, h3500 = 3500, h4000 = 4000, h4500 = 4500,
           h5000 = 5000, h5500 = 5500, h6000 = 6000, h6500 = 6500, h7000 = 7000, 
           h7500 = 7500, h8000 = 8000, h8500 = 8500, h9000 = 9000, h9500 = 9500, 
