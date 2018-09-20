@@ -4,6 +4,8 @@ library(wordcloud)
 library(dplyr)
 library(stringr)
 library(scales) # for date_breaks function
+install.packages("lsa")
+install.packages("ggdendro")
 library(lsa) # To compute cosine metric
 library(ggdendro)
 
@@ -16,7 +18,7 @@ library(EWEReporting)
 ####################### DATA READING AND CLEANING ###############################
 
 # Defining working directory
-setwd ("/home/marcela/Coding/EWE-reporting/Colorado")
+setwd ("Chapter1/Colorado")
 
 # Loading data into R
 colorado <- read.csv("ColoradoFloodOriginal.csv", header = TRUE, sep = ",")
