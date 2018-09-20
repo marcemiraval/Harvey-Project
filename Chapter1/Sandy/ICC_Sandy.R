@@ -18,7 +18,7 @@ library(EWEReporting)
 ####################### DATA READING AND CLEANING ###############################
 
 # Defining working directory
-setwd ("/home/marcela/Coding/EWE-reporting/Sandy")
+setwd ("Chapter1/Sandy")
 
 # Loading data into R
 sandy <- read.csv("Shelton_et_al_Sandy.csv", header = TRUE, sep = ",")
