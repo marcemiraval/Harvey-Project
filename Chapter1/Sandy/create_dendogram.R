@@ -26,7 +26,7 @@ create_dendogram = function(DTMInput, sparceFactor = 0.9, nclusters =3, OutFolde
   # plot the dendrogram; note use of color=cluster in geom_text(...)
   Dendogram <- ggplot() + 
     geom_segment(data=segment(dendro), aes(x=x, y=y, xend=xend, yend=yend),
-                 size = 0.4, colour = "gray") +
+                 size = 0.4, colour = " Dark gray") +
     geom_text(data=label(dendro), aes(x, y, label=label, hjust=0, color=cluster), 
               size=7) + coord_flip() + scale_y_reverse(expand=c(0.5, 0)) +
     theme(axis.line.y=element_blank(),
@@ -40,7 +40,7 @@ create_dendogram = function(DTMInput, sparceFactor = 0.9, nclusters =3, OutFolde
   Dendogram <- Dendogram + theme_void()
 
   ggsave(filename = OutFile, plot = Dendogram, path = OutFolder, width=5, 
-         height=10, units="in", dpi = 300, bg = "Black")
+         height=10, units="in", dpi = 300, bg = "White")
   # colors defined by http://tools.medialab.sciences-po.fr/iwanthue/
 }
 
