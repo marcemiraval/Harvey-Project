@@ -54,7 +54,7 @@ colorado$flood_stage[colorado$date >= "2013-09-16 00:00:00 PDT" & colorado$date 
 colorado$flood_stage[colorado$date >= "2013-09-23 00:00:00 PDT" & colorado$date  <= max_datetime] = "Post_Flood"
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
-OutputsFile <- "/home/marcela/Coding/EWE-reporting/Colorado/Outputs/mystages/"
+OutputsFile <- "Outputs/mystages"
 create_histo(InputFile = colorado, HistoColor = NA, HistoBinWidth = 3600,
              HistoName = "gen_hist_1h", SavePath = OutputsFile)
 create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600,
