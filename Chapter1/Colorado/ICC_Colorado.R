@@ -4,8 +4,8 @@ library(wordcloud)
 library(dplyr)
 library(stringr)
 library(scales) # for date_breaks function
-install.packages("lsa")
-install.packages("ggdendro")
+# install.packages("lsa")
+# install.packages("ggdendro")
 library(lsa) # To compute cosine metric
 library(ggdendro)
 
