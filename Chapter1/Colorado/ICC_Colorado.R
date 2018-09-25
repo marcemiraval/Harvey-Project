@@ -1,11 +1,10 @@
-library(ggplot2) # Nice plots.
+library(tidyverse) # For ggplot. Nice plots.
+library(lubridate)
 library(tm) # For text Mining
 library(wordcloud)
 library(dplyr)
 library(stringr)
 library(scales) # for date_breaks function
-# install.packages("lsa")
-# install.packages("ggdendro")
 library(lsa) # To compute cosine metric
 library(ggdendro)
 
@@ -15,10 +14,11 @@ library(EWEReporting)
 
 
 
-####################### DATA READING AND CLEANING ###############################
-
 # Defining working directory
 setwd ("Chapter1/Colorado")
+
+
+####################### DATA CLEANING ###############################
 
 # Loading data into R
 colorado <- read.csv("ColoradoFloodOriginal.csv", header = TRUE, sep = ",")
@@ -26,7 +26,7 @@ colorado <- read.csv("ColoradoFloodOriginal.csv", header = TRUE, sep = ",")
 # Removing duplicated tweets and tweets created by bots
 colorado=na.omit(colorado)
 colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
-TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "mountain","game","shirts",
+TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
                      "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
 
 # grepl function doesn't take all elements in the vector.
@@ -35,19 +35,26 @@ colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_t
 colorado <- distinct(colorado, t_text, .keep_all = TRUE) # remove duplicate tweets
 write.csv(colorado, file = "Colorado_Clean.csv")
 
-######################### HISTOGRAMS ###########################################
 
-# Histogram including all reports
-colorado$date <-as.POSIXct(strptime(colorado$created_at, format="%Y-%m-%d %H:%M:%S"))
+####################### DATA READING AND CLEANING ###############################
+# Loading data into R
+colorado <- read.csv("Colorado_Clean.csv", header = TRUE, sep = ",")
+
+# Format date/time
+colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
+
+######################### HISTOGRAMS ###########################################
 
 # Creating an attribute to define flood_stage for each report
 min_datetime <- "2013-09-01 00:00:48 PDT"
 max_datetime <- "2013-09-30 23:52:05 PDT"
 colorado$flood_stage = "Pre_flood" # Initialize Variable
+# Haiyun's stages
 # colorado$flood_stage[colorado$date >= min_datetime & colorado$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
 # colorado$flood_stage[colorado$date >= "2013-09-09 00:00:00 PDT" & colorado$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 # colorado$flood_stage[colorado$date >= "2013-09-16 00:00:00 PDT" & colorado$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
 # colorado$flood_stage[colorado$date >= "2013-09-23 00:00:00 PDT" & colorado$date  <= max_datetime] = "Post_Flood"
+# My stages
 colorado$flood_stage[colorado$date >= min_datetime & colorado$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
 colorado$flood_stage[colorado$date >= "2013-09-11 00:00:00 PDT" & colorado$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 colorado$flood_stage[colorado$date >= "2013-09-16 00:00:00 PDT" & colorado$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
@@ -62,6 +69,9 @@ create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600,
 
 
 ####################### CORPUSES PREPARATION #################################################
+
+# The list of valid options
+stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
 
 # Filtering out reports sent within specific stages (time intervals)
 preFlood <- subset(colorado, (flood_stage == "Pre_flood"))
@@ -87,11 +97,12 @@ post_co_corpus <- create_corpus(postFlood, ToExclude)
 
 # Constructing the Term Document Matrices and Wordclouds
 
+# Histogram including all reports
 dtm_colorado <-  DocumentTermMatrix(colorado_corpus)
 create_wordcloud(DTMInput = dtm_colorado, sparceFactor = 0.999999999999,
                  OutFolder = OutputsFile,
-                 OutFile = "WordcloudAllColorado.png", background = "Black", 
-                 ncolors = 6, palette = "Blues")
+                 OutFile = "WordcloudAllColorado.png", background = "White", 
+                 ncolors = 6, palette = "YlGnBu")
 
 dtm_colpre <-  DocumentTermMatrix(preco_corpus)
 create_wordcloud(DTMInput = dtm_colpre, sparceFactor = 0.999999999999,
@@ -125,7 +136,7 @@ create_wordcloud(DTMInput = dtm_col_post, sparceFactor = 0.999999999999,
 create_dendogram(DTMInput = dtm_colorado , sparceFactor = 0.98, nclusters = 6, 
                  OutFolder = OutputsFile,
                  OutFile = "Dendogram.png",
-                 palette = "Set2")
+                 palette = "Accent")
 
 create_dendogram(DTMInput = dtm_colpre, sparceFactor = 0.98, nclusters = 7, 
                  OutFolder = OutputsFile,
