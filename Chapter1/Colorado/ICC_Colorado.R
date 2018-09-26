@@ -1,5 +1,6 @@
 library(tidyverse) # For ggplot. Nice plots.
 library(lubridate)
+library(sf)
 library(tm) # For text Mining
 library(wordcloud)
 library(dplyr)
@@ -42,6 +43,15 @@ colorado <- read.csv("Colorado_Clean.csv", header = TRUE, sep = ",")
 
 # Format date/time
 colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
+
+# Store tweets as simple features
+colo_tweets_sf <- colorado %>% 
+  select(lat = latitude, 
+         lon = longitude, 
+         date = date, 
+         state = c_state,
+         tweet = t_text) %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
 ######################### HISTOGRAMS ###########################################
 
