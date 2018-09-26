@@ -1,17 +1,20 @@
 library(tidyverse) # For ggplot. Nice plots.
-library(lubridate)
-library(sf)
+library(lubridate) # Play nicely with dates
+library(sf) # Spatial monster
+library(scales) # for date_breaks function
+
+library(EWEReporting) # My package to use function to create_corpus function. 
+#Install this function using devtools package
+
 library(tm) # For text Mining
 library(wordcloud)
 library(dplyr)
 library(stringr)
-library(scales) # for date_breaks function
+
 library(lsa) # To compute cosine metric
 library(ggdendro)
 
-#to use my package
-library(devtools)
-library(EWEReporting)
+
 
 
 
@@ -53,29 +56,51 @@ colo_tweets_sf <- colorado %>%
          tweet = t_text) %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
-######################### HISTOGRAMS ###########################################
+
+######################### DEFINING TEMPORAL STAGES #####################################
 
 # Creating an attribute to define flood_stage for each report
 min_datetime <- "2013-09-01 00:00:48 PDT"
 max_datetime <- "2013-09-30 23:52:05 PDT"
-colorado$flood_stage = "Pre_flood" # Initialize Variable
-# Haiyun's stages
-# colorado$flood_stage[colorado$date >= min_datetime & colorado$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
-# colorado$flood_stage[colorado$date >= "2013-09-09 00:00:00 PDT" & colorado$date < "2013-09-16 00:00:00 PDT"] = "Flood"
-# colorado$flood_stage[colorado$date >= "2013-09-16 00:00:00 PDT" & colorado$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
-# colorado$flood_stage[colorado$date >= "2013-09-23 00:00:00 PDT" & colorado$date  <= max_datetime] = "Post_Flood"
+
+colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
+
+# Haiyun's stages 
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
+#                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
+#                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
+#                              colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
+#                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
+
 # My stages
-colorado$flood_stage[colorado$date >= min_datetime & colorado$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
-colorado$flood_stage[colorado$date >= "2013-09-11 00:00:00 PDT" & colorado$date < "2013-09-16 00:00:00 PDT"] = "Flood"
-colorado$flood_stage[colorado$date >= "2013-09-16 00:00:00 PDT" & colorado$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
-colorado$flood_stage[colorado$date >= "2013-09-23 00:00:00 PDT" & colorado$date  <= max_datetime] = "Post_Flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
+                             colo_tweets_sf$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 00:00:00 PDT" & 
+                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
+                             colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
+                             colo_tweets_sf$date <= max_datetime] = "Post_Flood"
+
+
+######################### HISTOGRAMS ###########################################
+
+## Making sure stages are defined as categorical variables
+colo_tweets_sf$flood_stage <- as.factor(colo_tweets_sf$flood_stage)
+# levels(colo_tweets_sf$flood_stage) # Checking levels and seeing order
+colo_tweets_sf$flood_stage <- factor(colo_tweets_sf$flood_stage,
+                                     levels(colo_tweets_sf$flood_stage) [c(4,1,2,3)])#reorder factor levels for legend
+
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
 OutputsFile <- "Outputs/mystages"
-create_histo(InputFile = colorado, HistoColor = NA, HistoBinWidth = 3600,
+create_histo(InputFile = colo_tweets_sf, HistoColor = NA, HistoBinWidth = 3600,
              HistoName = "gen_hist_1h", SavePath = OutputsFile)
-create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600,
-             HistoName = "gen_hist_6h", SavePath = OutputsFile)
+create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600, 
+             HistoName = "gen_hist_6h", SavePath = OutputsFile)#Not working. Check if necessary
 
 
 ####################### CORPUSES PREPARATION #################################################
