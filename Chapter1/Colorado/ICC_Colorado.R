@@ -109,21 +109,40 @@ create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600,
 stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
 
 # Filtering out reports sent within specific stages (time intervals)
-preFlood <- subset(colorado, (flood_stage == "Pre_flood"))
-flood <- subset(colorado, (flood_stage == "Flood"))
-iAftermath <- subset(colorado, (flood_stage == "Immediate_Aftermath"))
-postFlood <- subset(colorado, (flood_stage == "Post_Flood"))
+# preFlood <- subset(colorado, (flood_stage == "Pre_flood"))
+# flood <- subset(colorado, (flood_stage == "Flood"))
+# iAftermath <- subset(colorado, (flood_stage == "Immediate_Aftermath"))
+# postFlood <- subset(colorado, (flood_stage == "Post_Flood"))
 
 # Using my corpus function
 ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "colorado", "coflood", "like",
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
                "safe", "see", "look", "morn", "issu", "dont", "lol")
 
-colorado_corpus <- create_corpus(colorado, ToExclude)
-preco_corpus <- create_corpus(preFlood, ToExclude)
-floodco_corpus <- create_corpus(flood, ToExclude)
-iaco_corpus <- create_corpus(iAftermath, ToExclude)
-post_co_corpus <- create_corpus(postFlood, ToExclude)
+# colorado_corpus <- create_corpus(colorado, ToExclude)
+# preco_corpus <- create_corpus(preFlood, ToExclude)
+# floodco_corpus <- create_corpus(flood, ToExclude)
+# iaco_corpus <- create_corpus(iAftermath, ToExclude)
+# post_co_corpus <- create_corpus(postFlood, ToExclude)
+
+getTermMatrix <- function(stage) {
+  if (!(stage %in% stages))
+    stop("Unknown stage")
+  
+  # From here on we will be tidytexting
+  
+  colo_stage <- colo_tweets_sf %>% 
+    filter(flood_stage == stage) %>% 
+    st_set_geometry(NULL) %>% 
+    select(tweet) %>% 
+    rename(text = `tweet`) %>% 
+    unnest_tokens(word, text) %>%
+    filter(!str_detect(word, "[0-9]"), !word %in% termsToExclude)%>% 
+    anti_join(stop_words) %>%
+    mutate(word = wordStem(word)) %>%
+    count(word, sort = TRUE) 
+}
+
 
 
 ####################### WORDCLOUD AND DENDROGRAM FOR COMPLETE DATASET ###############################
