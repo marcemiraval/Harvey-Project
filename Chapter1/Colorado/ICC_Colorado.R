@@ -3,14 +3,16 @@ library(lubridate) # Play nicely with dates
 library(sf) # Spatial monster
 library(scales) # for date_breaks function
 library(tidytext)
+library(dplyr)
+library(stringr)
+
 
 library(EWEReporting) # My package to use function to create_corpus function. 
 #Install this function using devtools package
 
 library(tm) # For text Mining
 library(wordcloud)
-library(dplyr)
-library(stringr)
+
 
 library(lsa) # To compute cosine metric
 library(ggdendro)
@@ -43,7 +45,7 @@ write.csv(colorado, file = "Colorado_Clean.csv")
 
 ####################### DATA READING AND CLEANING ###############################
 # Loading data into R
-colorado <- read.csv("Colorado_Clean.csv", header = TRUE, sep = ",")
+colorado <- read_csv("Colorado_Clean.csv")
 
 # Format date/time
 colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
@@ -120,29 +122,27 @@ ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "colorado", "coflood",
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
                "safe", "see", "look", "morn", "issu", "dont", "lol")
 
-getTermMatrix <- function(stage) {
-  if (!(stage %in% stages))
-    stop("Unknown stage")
+
+# From here on we will be tidytexting
+
+colo_tweets <- colo_tweets_sf %>%
+  st_set_geometry(NULL) %>% 
+  select(tweet) %>% 
+  rename(text = `tweet`) 
+## Still need to look for a way to delete retweets
   
-  # From here on we will be tidytexting
-  
-  colo_stage <- colo_tweets_sf %>% 
-    filter(flood_stage == stage) %>% 
-    st_set_geometry(NULL) %>% 
-    select(tweet) %>% 
-    rename(text = `tweet`) %>% 
-    unnest_tokens_(word, text) %>%
-    filter(!str_detect(word, "[0-9]"), !word %in% termsToExclude)%>% 
-    anti_join(stop_words) %>%
-    mutate(word = wordStem(word)) %>%
-    count(word, sort = TRUE) 
-}
+colo_tokens <- colo_tweets %>%
+  unnest_tokens(word, text) %>% ## Check differences with unnest_tokens(tweet, text, "tweets")
+  filter(!str_detect(word, "[0-9]"), !word %in% ToExclude)%>% 
+  anti_join(stop_words)%>%
+  mutate(word = wordStem(word))%>%
+  count(word, sort = TRUE) 
 
 
-stagess <- lapply(stages, getTermMatrix)
+# Check how I created wordclouds for the shiny app in the server file.
+# It seems that create_corpus is unnecesary
 
-
-# colorado_corpus <- create_corpus(colorado, ToExclude)
+# colorado_corpus <- create_corpus(colo_tokens, ToExclude)
 # preco_corpus <- create_corpus(preFlood, ToExclude)
 # floodco_corpus <- create_corpus(flood, ToExclude)
 # iaco_corpus <- create_corpus(iAftermath, ToExclude)
