@@ -2,6 +2,7 @@ library(tidyverse) # For ggplot. Nice plots.
 library(lubridate) # Play nicely with dates
 library(sf) # Spatial monster
 library(scales) # for date_breaks function
+library(tidytext)
 
 library(EWEReporting) # My package to use function to create_corpus function. 
 #Install this function using devtools package
@@ -119,12 +120,6 @@ ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "colorado", "coflood",
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
                "safe", "see", "look", "morn", "issu", "dont", "lol")
 
-# colorado_corpus <- create_corpus(colorado, ToExclude)
-# preco_corpus <- create_corpus(preFlood, ToExclude)
-# floodco_corpus <- create_corpus(flood, ToExclude)
-# iaco_corpus <- create_corpus(iAftermath, ToExclude)
-# post_co_corpus <- create_corpus(postFlood, ToExclude)
-
 getTermMatrix <- function(stage) {
   if (!(stage %in% stages))
     stop("Unknown stage")
@@ -136,7 +131,7 @@ getTermMatrix <- function(stage) {
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
     rename(text = `tweet`) %>% 
-    unnest_tokens(word, text) %>%
+    unnest_tokens_(word, text) %>%
     filter(!str_detect(word, "[0-9]"), !word %in% termsToExclude)%>% 
     anti_join(stop_words) %>%
     mutate(word = wordStem(word)) %>%
@@ -144,6 +139,14 @@ getTermMatrix <- function(stage) {
 }
 
 
+stagess <- lapply(stages, getTermMatrix)
+
+
+# colorado_corpus <- create_corpus(colorado, ToExclude)
+# preco_corpus <- create_corpus(preFlood, ToExclude)
+# floodco_corpus <- create_corpus(flood, ToExclude)
+# iaco_corpus <- create_corpus(iAftermath, ToExclude)
+# post_co_corpus <- create_corpus(postFlood, ToExclude)
 
 ####################### WORDCLOUD AND DENDROGRAM FOR COMPLETE DATASET ###############################
 
