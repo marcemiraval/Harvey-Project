@@ -118,25 +118,41 @@ stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To 
 # postFlood <- subset(colorado, (flood_stage == "Post_Flood"))
 
 # Using my corpus function
-ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "colorado", "coflood", "like",
+ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "#colorado", "#coflood", "like",
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
-               "safe", "see", "look", "morn", "issu", "dont", "lol")
+               "safe", "see", "look", "morn", "issu", "dont", "lol", "#boulder", "im", "cu", 
+               "#coloradostrong", "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
+               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre")
 
 
 # From here on we will be tidytexting
 
 colo_tweets <- colo_tweets_sf %>%
+  #filter(flood_stage == "Post_Flood") %>% 
   st_set_geometry(NULL) %>% 
   select(tweet) %>% 
   rename(text = `tweet`) 
 ## Still need to look for a way to delete retweets
   
 colo_tokens <- colo_tweets %>%
-  unnest_tokens(word, text) %>% ## Check differences with unnest_tokens(tweet, text, "tweets")
+  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
   filter(!str_detect(word, "[0-9]"), !word %in% ToExclude)%>% 
   anti_join(stop_words)%>%
-  mutate(word = wordStem(word))%>%
+ # mutate(word = wordStem(word))%>%
   count(word, sort = TRUE) 
+
+# define a nice color palette
+pal <- brewer.pal(8,"Dark2")
+
+# plot the 50 most common words
+colo_tokens %>% 
+  with(wordcloud(word, n, scale=c(4,0.5),
+                 min.freq = 7, max.words = 30,
+                 random.order = FALSE, 
+                 rot.per = FALSE, 
+                 use.r.layout = FALSE,
+                 color = brewer.pal(5, "Blues"),
+                 family = "Helvetica"))
 
 
 # Check how I created wordclouds for the shiny app in the server file.
