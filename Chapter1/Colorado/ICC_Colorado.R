@@ -40,25 +40,25 @@ TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
 # So we have to paste them with an or stament like "i'm at|vegas"
 colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),]
 colorado <- distinct(colorado, t_text, .keep_all = TRUE) # remove duplicate tweets
-write.csv(colorado, file = "Colorado_Clean.csv")
-
 
 ####################### DATA READING AND CLEANING ###############################
-# Loading data into R
-colorado <- read_csv("Colorado_Clean.csv")
 
 # Format date/time
 colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
 
-# Store tweets as simple features
+# Store tweets as simple features and project data
 colo_tweets_sf <- colorado %>% 
   select(lat = latitude, 
          lon = longitude, 
          date = date, 
          state = c_state,
          tweet = t_text) %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% # set WGS84 as original datum
+  st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 + 
+               lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
+               units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
 
+# st_crs(colo_tweets_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 ######################### DEFINING TEMPORAL STAGES #####################################
 
