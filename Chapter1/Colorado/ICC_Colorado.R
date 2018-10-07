@@ -5,6 +5,8 @@ library(scales) # for date_breaks function
 library(tidytext)
 library(dplyr)
 library(stringr)
+library(dbscan)
+library(fpc)
 
 
 library(EWEReporting) # My package to use function to create_corpus function. 
@@ -41,7 +43,7 @@ TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
 colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),]
 colorado <- distinct(colorado, t_text, .keep_all = TRUE) # remove duplicate tweets
 
-####################### DATA READING AND CLEANING ###############################
+####################### DATA READING, CLEANING AND PROJECTING ###########################
 
 # Format date/time
 colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
@@ -89,6 +91,20 @@ colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
 
 
+######################### SPATIAL CLUSTERING ####################################
+
+set.seed(123)
+
+clusters <- dbscan(colo_tweets_sf %>%
+                     st_coordinates(), #This rounds coordinates
+                   eps = 100,
+                   MinPts = 50,
+                   method = c("raw")) # Still need to check this parameters by 
+# ploting the outcome
+
+colo_clusters <- colo_tweets_sf %>% 
+  mutate(cluster = clusters$cluster)
+
 ######################### HISTOGRAMS ###########################################
 
 ## Making sure stages are defined as categorical variables
@@ -118,17 +134,17 @@ stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To 
 # postFlood <- subset(colorado, (flood_stage == "Post_Flood"))
 
 # Using my corpus function
-ToExclude <- c("boulderflood", "flood", "boulder", "mdt", "#colorado", "#coflood", "like",
+ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
                "safe", "see", "look", "morn", "issu", "dont", "lol", "#boulder", "im", "cu", 
                "#coloradostrong", "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
-               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre")
+               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre", "flood", "flooding", "floods")
 
 
 # From here on we will be tidytexting
 
 colo_tweets <- colo_tweets_sf %>%
-  #filter(flood_stage == "Post_Flood") %>% 
+#  filter(flood_stage == "Flood") %>% 
   st_set_geometry(NULL) %>% 
   select(tweet) %>% 
   rename(text = `tweet`) 
