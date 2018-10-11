@@ -14,7 +14,7 @@ library(htmltools)
 library(tm) 
 library(wordcloud)
 library(tidytext)
-library(stringr)
+library(stringr) # For str_to_lower
 
 library(EWEReporting) # My package to use function to create_corpus function. 
 #Install this function using devtools package
@@ -36,20 +36,24 @@ setwd ("Chapter1/Colorado")
 ####################### DATA CLEANING ###############################
 
 # Loading data into R
-colorado <- read.csv("ColoradoFloodOriginal.csv", header = TRUE, sep = ",")
+colorado <- read_csv("ColoradoFloodOriginal.csv")
 
-# Removing duplicated tweets and tweets created by bots
-colorado=na.omit(colorado)
+colorado <- colorado %>% # Removing retweets
+  filter(!str_detect(t_text, "^RT"))
+
 colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
+
 TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
                      "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
 
+# Here is to remove tweets from bots
 # grepl function doesn't take all elements in the vector.
 # So we have to paste them with an or stament like "i'm at|vegas"
-colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),]
-colorado <- distinct(colorado, t_text, .keep_all = TRUE) # remove duplicate tweets
+colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),] 
+
 
 ####################### DATA READING, CLEANING AND PROJECTING ###########################
+
 
 # Format date/time
 colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
@@ -81,10 +85,7 @@ colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
 #                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
 # colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
 #                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
-#                              colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
-#                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
+# And the Inmmediate aftermath and post_flood are the same
 
 # My stages
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
@@ -116,9 +117,9 @@ colo_clusters_wgs84 <- colo_clusters %>% # Need to reproject in WGS84 datum. lon
 colo_clusters_wgs84$cluster <- as.factor(colo_clusters_wgs84$cluster) #Clusters as factors for coloring
 pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
 
-# #1. or Red cluster has 609 tweets.
-# #2. or Blue cluster has 1992 tweets.
-# 2239/4840 tweets were classified as outliers.
+# #1. or Red cluster has 608 tweets. Denver
+# #2. or Blue cluster has 1998 tweets. Boulder
+# 2219/4840 tweets were classified as outliers.
 
 coloMap <- leaflet(colo_clusters_wgs84) %>% # Interactive map to see resulting clusters
   addTiles()  %>%
@@ -167,23 +168,24 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
                "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
                "safe", "see", "look", "morn", "issu", "dont", "lol", "#boulder", "im", "cu", 
                "#coloradostrong", "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
-               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre", "flood", "flooding", "floods")
+               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre", "flood", 
+               "flooding", "floods", "flooded")
 
 
 # From here on we will be tidytexting
 
-colo_tweets <- colo_tweets_sf %>%
-#  filter(flood_stage == "Flood") %>% 
+colo_tweets <- colo_clusters_wgs84 %>%
+ # filter(cluster == "2" | cluster == "1") %>% 
   st_set_geometry(NULL) %>% 
   select(tweet) %>% 
   rename(text = `tweet`) 
-## Still need to look for a way to delete retweets
-  
+
+
 colo_tokens <- colo_tweets %>%
   unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-  filter(!str_detect(word, "[0-9]"), !word %in% ToExclude)%>% 
+  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
   anti_join(stop_words)%>%
- # mutate(word = wordStem(word))%>%
+  # mutate(word = wordStem(word))%>%
   count(word, sort = TRUE) 
 
 # define a nice color palette
