@@ -2,18 +2,24 @@ library(tidyverse) # For ggplot. Nice plots.
 library(lubridate) # Play nicely with dates
 library(sf) # Spatial monster
 library(scales) # for date_breaks function
-library(tidytext)
 library(dplyr)
-library(stringr)
-library(dbscan)
-library(fpc)
 
+# For spatial clustering
+library(dbscan)
+library(fpc) # Check if this is necessary
+library(leaflet)
+library(htmltools)
+
+# For text Mining
+library(tm) 
+library(wordcloud)
+library(tidytext)
+library(stringr)
 
 library(EWEReporting) # My package to use function to create_corpus function. 
 #Install this function using devtools package
 
-library(tm) # For text Mining
-library(wordcloud)
+
 
 
 library(lsa) # To compute cosine metric
@@ -101,6 +107,32 @@ clusters <- hdbscan(colo_tweets_sf %>%
 
 colo_clusters <- colo_tweets_sf %>% 
   mutate(cluster = clusters$cluster)
+
+## Plotting spatial cluster results
+
+colo_clusters_wgs84 <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat format.
+  st_transform(crs = 4326)
+
+colo_clusters_wgs84$cluster <- as.factor(colo_clusters_wgs84$cluster) #Clusters as factors for coloring
+pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
+
+# #1. or Red cluster has 609 tweets.
+# #2. or Blue cluster has 1992 tweets.
+# 2239/4840 tweets were classified as outliers.
+
+coloMap <- leaflet(colo_clusters_wgs84) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(weight = 3, 
+             radius=40,
+             color= ~pal(cluster), 
+             stroke = TRUE, 
+             fillOpacity = 0.7,
+             popup = ~htmlEscape(cluster))%>% 
+  setView(lng = -94, lat = 40.4, zoom = 4.5)
+
+coloMap
+
 
 ######################### HISTOGRAMS ###########################################
 
