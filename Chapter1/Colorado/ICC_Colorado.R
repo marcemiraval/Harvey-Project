@@ -95,12 +95,9 @@ colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
 
 set.seed(123)
 
-clusters <- dbscan(colo_tweets_sf %>%
-                     st_coordinates(), #This rounds coordinates
-                   eps = 100,
-                   MinPts = 50,
-                   method = c("raw")) # Still need to check this parameters by 
-# ploting the outcome
+clusters <- hdbscan(colo_tweets_sf %>%
+                      st_coordinates(), #This rounds coordinates
+                    minPts = 350)
 
 colo_clusters <- colo_tweets_sf %>% 
   mutate(cluster = clusters$cluster)
