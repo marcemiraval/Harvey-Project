@@ -198,14 +198,14 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
 # From here on we will be tidytexting
 
 
-create_wordcloud <- function(stage){
+create_wordcloud <- function(stage, clusterID){
   
   # png(filename = paste("Outputs/mystages/", stage, sep = ""), width=3, height=3, units="in", res=300, bg = "transparent") 
   
   print(stage)
   
   colo_tweets <- colo_clusters_wgs84 %>%
-    filter(cluster == "1" | cluster == "2" | flood_stage == stage) %>% 
+    filter(cluster == clusterID | flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
     rename(text = `tweet`) 
@@ -231,8 +231,28 @@ create_wordcloud <- function(stage){
                    family = "Helvetica"))
 }
 
-lapply(stages, create_wordcloud)
+```
 
+
+<br>
+
+#### **Wordclouds for Denver**
+
+```{r word_Denver, message=FALSE}
+
+lapply(stages, create_wordcloud, clusterID = "1")
 
 ```
+
+
+<br>
+
+#### **Wordclouds for Boulder**
+
+```{r word_Boulder, message=FALSE}
+
+lapply(stages, create_wordcloud, clusterID = "2")
+
+```
+
 
