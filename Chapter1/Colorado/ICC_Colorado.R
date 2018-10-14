@@ -52,7 +52,7 @@ TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
 colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),] 
 
 
-####################### DATA READING, CLEANING AND PROJECTING ###########################
+####################### DATA READING AND PROJECTING ###########################
 
 
 # Format date/time
@@ -80,7 +80,7 @@ max_datetime <- "2013-09-30 23:52:05 PDT"
 
 colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
 
-# Haiyun's stages 
+# Ye's stages 
 # colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
 #                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
 # colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
@@ -135,7 +135,7 @@ coloMap <- leaflet(colo_clusters_wgs84) %>% # Interactive map to see resulting c
 coloMap
 
 
-######################### HISTOGRAMS ###########################################
+######################### HISTOGRAM ###########################################
 
 ## Making sure stages are defined as categorical variables
 colo_tweets_sf$flood_stage <- as.factor(colo_tweets_sf$flood_stage)
@@ -145,23 +145,14 @@ colo_tweets_sf$flood_stage <- factor(colo_tweets_sf$flood_stage,
 
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
-OutputsFile <- "Outputs/mystages"
 create_histo(InputFile = colo_tweets_sf, HistoColor = NA, HistoBinWidth = 3600,
-             HistoName = "gen_hist_1h", SavePath = OutputsFile)
-create_histo(InputFile = colorado, HistoColor = "black", HistoBinWidth = 21600, 
-             HistoName = "gen_hist_6h", SavePath = OutputsFile)#Not working. Check if necessary
+             HistoName = "gen_hist_1h", SavePath = "Outputs")
 
 
-####################### CORPUSES PREPARATION #################################################
+####################### CORPUSES PREPARATION AND WORDCLOUDS #################################################
 
 # The list of valid options
 stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
-
-# Filtering out reports sent within specific stages (time intervals)
-# preFlood <- subset(colorado, (flood_stage == "Pre_flood"))
-# flood <- subset(colorado, (flood_stage == "Flood"))
-# iAftermath <- subset(colorado, (flood_stage == "Immediate_Aftermath"))
-# postFlood <- subset(colorado, (flood_stage == "Post_Flood"))
 
 # Using my corpus function
 ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
@@ -174,42 +165,41 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
 
 # From here on we will be tidytexting
 
-colo_tweets <- colo_clusters_wgs84 %>%
- # filter(cluster == "2" | cluster == "1") %>% 
-  st_set_geometry(NULL) %>% 
-  select(tweet) %>% 
-  rename(text = `tweet`) 
+setwd("Outputs/mystages")
 
+create_wordcloud <- function(stage){
+  
+  #names(stage)
+  #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
+  
+  colo_tweets <- colo_clusters_wgs84 %>%
+    filter(cluster == "1" | cluster == "2") %>% 
+    st_set_geometry(NULL) %>% 
+    select(tweet) %>% 
+    rename(text = `tweet`) 
+  
+  colo_tokens <- colo_tweets %>%
+    unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
+    filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
+    anti_join(stop_words)%>%
+    # mutate(word = wordStem(word))%>%
+    count(word, sort = TRUE) 
+  
+  # define color palette
+  pal <- brewer.pal(8,"Dark2")
+  
+  # plot the 30 most common words
+  colo_tokens %>% 
+    with(wordcloud(word, n, scale=c(4,0.5),
+                   min.freq = 7, max.words = 30,
+                   random.order = FALSE, 
+                   rot.per = FALSE, 
+                   use.r.layout = FALSE,
+                   color = brewer.pal(5, "Blues"),
+                   family = "Helvetica"))
+}
 
-colo_tokens <- colo_tweets %>%
-  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
-  anti_join(stop_words)%>%
-  # mutate(word = wordStem(word))%>%
-  count(word, sort = TRUE) 
-
-# define a nice color palette
-pal <- brewer.pal(8,"Dark2")
-
-# plot the 50 most common words
-colo_tokens %>% 
-  with(wordcloud(word, n, scale=c(4,0.5),
-                 min.freq = 7, max.words = 30,
-                 random.order = FALSE, 
-                 rot.per = FALSE, 
-                 use.r.layout = FALSE,
-                 color = brewer.pal(5, "Blues"),
-                 family = "Helvetica"))
-
-
-# Check how I created wordclouds for the shiny app in the server file.
-# It seems that create_corpus is unnecesary
-
-# colorado_corpus <- create_corpus(colo_tokens, ToExclude)
-# preco_corpus <- create_corpus(preFlood, ToExclude)
-# floodco_corpus <- create_corpus(flood, ToExclude)
-# iaco_corpus <- create_corpus(iAftermath, ToExclude)
-# post_co_corpus <- create_corpus(postFlood, ToExclude)
+lapply(stages, create_wordcloud)
 
 ####################### WORDCLOUD AND DENDROGRAM FOR COMPLETE DATASET ###############################
 
