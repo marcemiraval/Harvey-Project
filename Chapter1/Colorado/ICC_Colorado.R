@@ -81,20 +81,20 @@ max_datetime <- "2013-09-30 23:52:05 PDT"
 colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
 
 # Ye's stages 
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
-#                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
-#                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
+                             colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" &
+                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 # And the Inmmediate aftermath and post_flood are the same
 
 # My stages
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
-                             colo_tweets_sf$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 00:00:00 PDT" & 
-                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
+#                              colo_tweets_sf$date < "2013-09-11 12:00:00 PDT"] = "Pre_flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 12:00:00 PDT" & 
+#                              colo_tweets_sf$date < "2013-09-12 12:00:00 PDT"] = "Flood"
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
-                             colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
+                             colo_tweets_sf$date < "2013-09-19 00:00:00 PDT"] = "Immediate_Aftermath"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-19 00:00:00 PDT" &
                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
 
 
@@ -111,17 +111,17 @@ colo_clusters <- colo_tweets_sf %>%
 
 ## Plotting spatial cluster results
 
-colo_clusters_wgs84 <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat format.
+colo_clusters <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat format.
   st_transform(crs = 4326)
 
-colo_clusters_wgs84$cluster <- as.factor(colo_clusters_wgs84$cluster) #Clusters as factors for coloring
+colo_clusters$cluster <- as.factor(colo_clusters$cluster) #Clusters as factors for coloring
 pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
 
 # #1. or Red cluster has 608 tweets. Denver
 # #2. or Blue cluster has 1998 tweets. Boulder
 # 2219/4840 tweets were classified as outliers.
 
-coloMap <- leaflet(colo_clusters_wgs84) %>% # Interactive map to see resulting clusters
+coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting clusters
   addTiles()  %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addCircles(weight = 3, 
@@ -138,14 +138,14 @@ coloMap
 ######################### HISTOGRAM ###########################################
 
 ## Making sure stages are defined as categorical variables
-colo_tweets_sf$flood_stage <- as.factor(colo_tweets_sf$flood_stage)
-# levels(colo_tweets_sf$flood_stage) # Checking levels and seeing order
-colo_tweets_sf$flood_stage <- factor(colo_tweets_sf$flood_stage,
-                                     levels(colo_tweets_sf$flood_stage) [c(4,1,2,3)])#reorder factor levels for legend
+colo_clusters$flood_stage <- as.factor(colo_clusters$flood_stage)
+# levels(colo_clusters$flood_stage) # Checking levels and seeing order
+colo_clusters$flood_stage <- factor(colo_clusters$flood_stage,
+                                     levels(colo_clusters$flood_stage) [c(4,1,2,3)])#reorder factor levels for legend
 
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
-create_histo(InputFile = colo_tweets_sf, HistoColor = NA, HistoBinWidth = 3600,
+create_histo(InputFile = colo_clusters, HistoColor = NA, HistoBinWidth = 3600,
              HistoName = "gen_hist_1h", SavePath = "Outputs")
 
 
@@ -156,24 +156,21 @@ stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To 
 
 # Using my corpus function
 ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
-               "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
-               "safe", "see", "look", "morn", "issu", "dont", "lol", "#boulder", "im", "cu", 
-               "#coloradostrong", "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
-               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre", "flood", 
-               "flooding", "floods", "flooded")
+               "will","septemb", "amp", "lol", "#boulder", "im", "#coloradostrong", 
+               "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
+               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", 
+               "youre", "flood", "flooding", "floods", "flooded", "colo", "cu")
 
 
 # From here on we will be tidytexting
-
-setwd("Outputs/mystages")
 
 create_wordcloud <- function(stage){
   
   #names(stage)
   #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
   
-  colo_tweets <- colo_clusters_wgs84 %>%
-    filter(cluster == "1" | cluster == "2") %>% 
+  colo_tweets <- colo_clusters %>%
+    filter(cluster == "1" | cluster == "2" | flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
     rename(text = `tweet`) 
@@ -200,44 +197,6 @@ create_wordcloud <- function(stage){
 }
 
 lapply(stages, create_wordcloud)
-
-####################### WORDCLOUD AND DENDROGRAM FOR COMPLETE DATASET ###############################
-
-# wordclouds and dendrogram for each stage are in separate .R files
-
-# Constructing the Term Document Matrices and Wordclouds
-
-# Histogram including all reports
-dtm_colorado <-  DocumentTermMatrix(colorado_corpus)
-create_wordcloud(DTMInput = dtm_colorado, sparceFactor = 0.999999999999,
-                 OutFolder = OutputsFile,
-                 OutFile = "WordcloudAllColorado.png", background = "White", 
-                 ncolors = 6, palette = "YlGnBu")
-
-dtm_colpre <-  DocumentTermMatrix(preco_corpus)
-create_wordcloud(DTMInput = dtm_colpre, sparceFactor = 0.999999999999,
-                 OutFolder = OutputsFile,
-                 OutFile = "WdPreFlood.png", background = "transparent", 
-                 ncolors = 6, palette = "Dark2")
-
-dtm_colFlood <-  DocumentTermMatrix(floodco_corpus)
-create_wordcloud(DTMInput = dtm_colFlood, sparceFactor = 0.999999999999,
-                 OutFolder = OutputsFile,
-                 OutFile = "WdFlood.png", background = "transparent", 
-                 ncolors = 8, palette = "Dark2")
-
-dtm_col_ia <-  DocumentTermMatrix(iaco_corpus)
-create_wordcloud(DTMInput = dtm_col_ia, sparceFactor = 0.999999999999,
-                 OutFolder = OutputsFile,
-                 OutFile = "WdImmediateAfter.png", background = "transparent", 
-                 ncolors = 6, palette = "Dark2")
-
-dtm_col_post <-  DocumentTermMatrix(post_co_corpus)
-create_wordcloud(DTMInput = dtm_col_post, sparceFactor = 0.999999999999,
-                 OutFolder = OutputsFile,
-                 OutFile = "WdPostFlood.png", background = "transparent", 
-                 ncolors = 6, palette = "Dark2")
-
 
 ############## HIERACHICAL CLUSTERING ################################
 
