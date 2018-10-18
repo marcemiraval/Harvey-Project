@@ -200,6 +200,38 @@ lapply(stages, create_wordcloud)
 
 ############## HIERACHICAL CLUSTERING ################################
 
+colo_tweets <- colo_clusters %>%
+  filter(cluster == "1" | cluster == "2") %>% 
+  st_set_geometry(NULL) %>% 
+  select(tweet) %>% 
+  rename(text = `tweet`) %>% 
+  iconv(to = "utf-8", sub="") %>% 
+  tolower() %>%
+  {gsub("@*", "", .)} %>% # remove at
+  {gsub("#\\w+", "", .)} %>% 
+  {gsub("http[[:alnum:][:punct:]]*", "", .)} # remove links http
+
+
+colo_corpus <- Corpus(VectorSource(colo_tweets)) %>% 
+  tm_map(removePunctuation)
+
+reports_df_corpus <- tm_map(reports_df_corpus, removePunctuation)
+reports_df_corpus <- tm_map(reports_df_corpus, removeNumbers)
+reports_df_corpus <- tm_map(reports_df_corpus, stripWhitespace)
+reports_df_corpus <- tm_map(reports_df_corpus, stemDocument)
+reports_df_corpus <- tm_map(reports_df_corpus, removeWords, stopwords("english"))
+
+if(missing(listToExclude)) {
+  listToExclude <- c("")
+} else {
+  TermsToExclude <- listToExclude
+}
+
+reports_df_corpus <- tm_map(reports_df_corpus, removeWords, TermsToExclude)
+return(reports_df_corpus)
+
+
+######################################
 # Creating dendograms
 
 create_dendogram(DTMInput = dtm_colorado , sparceFactor = 0.98, nclusters = 6, 
