@@ -213,22 +213,56 @@ colo_tweets <- colo_clusters %>%
 
 
 colo_corpus <- Corpus(VectorSource(colo_tweets)) %>% 
-  tm_map(removePunctuation)
+  tm_map(removePunctuation) %>% 
+  tm_map(removeNumbers) %>% 
+  tm_map(stripWhitespace) %>% 
+  tm_map(stemDocument) %>% 
+  tm_map(removeWords, stopwords("english"))
 
-reports_df_corpus <- tm_map(reports_df_corpus, removePunctuation)
-reports_df_corpus <- tm_map(reports_df_corpus, removeNumbers)
-reports_df_corpus <- tm_map(reports_df_corpus, stripWhitespace)
-reports_df_corpus <- tm_map(reports_df_corpus, stemDocument)
-reports_df_corpus <- tm_map(reports_df_corpus, removeWords, stopwords("english"))
+colo_dtm <- DocumentTermMatrix(colo_corpus)
+colo_dtm <- removeSparseTerms(colo_dtm, 0.999999)
+colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
+cos_dist <- cosine(colo_matrix) # calculate cosine metric
+cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
+hc <-hclust(cos_dist)
 
-if(missing(listToExclude)) {
-  listToExclude <- c("")
-} else {
-  TermsToExclude <- listToExclude
-}
+dendro <- as.dendrogram(hc)
+ddata <- dendro_data(dendro, type="rectangle")
 
-reports_df_corpus <- tm_map(reports_df_corpus, removeWords, TermsToExclude)
-return(reports_df_corpus)
+ggdendrogram(hc, rotate = FALSE, size = 2)
+
+# prepare dendogram
+dendro <- dendro_data(hc, type="rectangle") # convert for ggplot
+cutForCluster <- cutree(hc, k= 3) # k is the number of clusters
+
+word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
+
+clust.df <- data.frame(label=names(cutForCluster), cluster=factor(cutForCluster), 
+                       freq=word_freqs)
+# dendr[["labels"]] has the labels, merge with clust.df based on label column
+dendro[["labels"]] <- merge(dendro[["labels"]], clust.df, by="label")
+
+# plot the dendrogram; note use of color=cluster in geom_text(...)
+Dendogram <- ggplot() + 
+  geom_segment(data=segment(dendro), aes(x=x, y=y, xend=xend, yend=yend),
+               size = 0.4, colour = " Dark gray") +
+  geom_text(data=label(dendro), aes(x, y, label=label, hjust=0, color=cluster), 
+            size=7) + coord_flip() + scale_y_reverse(expand=c(0.5, 0)) +
+  theme(axis.line.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_rect(fill=NULL),
+        panel.grid=element_blank())+
+  scale_color_manual(values = brewer.pal(nclusters, palette),
+                     guide = 'none')
+Dendogram <- Dendogram + theme_void()
+
+Dendogram
+ggsave(filename = OutFile, plot = Dendogram, path = OutFolder, width=5, 
+       height=10, units="in", dpi = 300, bg = "White")
+# colors defined by http://tools.medialab.sciences-po.fr/iwanthue/
+
 
 
 ######################################
