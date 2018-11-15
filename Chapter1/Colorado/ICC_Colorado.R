@@ -25,6 +25,8 @@ library(EWEReporting) # My package to use function to create_corpus function.
 library(lsa) # To compute cosine metric
 library(ggdendro)
 
+library(dendextend)
+
 
 
 
@@ -44,7 +46,32 @@ colorado <- colorado %>% # Removing retweets
 colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
 
 TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
-                     "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
+                     "i like that b", "playboy ranks", "it's a rock","bear","hike","football",
+                     "أصلا", "эт",  "рима", "комуто", "из", "жизнь", "детк", "αnd", "يعوض")
+
+"يا"                    "وين"                  "وناوي"                 "ولييييي"               "وانا"                 
+[7] "والمسآعي"              "هواياتي"               "هههههه"               
+[10] "هذا"                   "نمنا"                  "نحن"                  
+[13] "نافعا"                 "من"                    "ممر"                  
+[16] "مكان"                  "مفتون"                 "مرة"                  
+[19] "مدامك"                 "ما"                    "ليوم"                 
+[22] "لا"                    "كلها"                  "كل"                   
+[25] "قلبي"                  "فنحن"                  "عليهم"                
+[28] "عذاب"                  "عادي"                  "طين"                  
+[31] "طباخنا"                "طآل"                   "صيبا"                 
+[34] "صيب"                   "صبره"                  "سلام"                 
+[37] "رحمتك"                 "رب"                    "خليته"                
+[40] "حاقده"                 "جالس"                  "توافيق"               
+[43] "تقفل"                  "تغررررق"               "بوولدر"               
+[46] "بايع"                  "بانتظاركم"             "بالله"                
+[49] "اليوم"                 "اللهم"                 "العمر"                
+[52] "العشره"                "العتيبي"               "العبط"                
+[55] "الشقة"                 "الدين"                 "التجمع"               
+[58] "الانجنيرينق"           "الابواب"               "اصلا"                 
+[61] "اسوق"                  "اسألك"                 "احب"                  
+[64] "ابي"                   "ابتسم"                 "ابتسامتها"            
+[67] "إستراحة"               "ؤالله"                 "أمه"
+, 
 
 # Here is to remove tweets from bots
 # grepl function doesn't take all elements in the vector.
@@ -201,7 +228,7 @@ lapply(stages, create_wordcloud)
 ############## HIERACHICAL CLUSTERING ################################
 
 colo_tweets <- colo_clusters %>%
-  filter(cluster == "1" | cluster == "2") %>% 
+  filter(cluster == "1" | cluster == "2" | flood_stage == "Pre_flood") %>% 
   st_set_geometry(NULL) %>% 
   select(tweet) %>% 
   rename(text = `tweet`) %>% 
@@ -209,7 +236,8 @@ colo_tweets <- colo_clusters %>%
   tolower() %>%
   {gsub("@*", "", .)} %>% # remove at
   {gsub("#\\w+", "", .)} %>% 
-  {gsub("http[[:alnum:][:punct:]]*", "", .)} # remove links http
+  {gsub("http[^[:space:]]*", "", .)} %>% # remove url
+  {gsub("[^[:alpha:][:space:]]*", "", .)} # remove punctuation
 
 
 colo_corpus <- Corpus(VectorSource(colo_tweets)) %>% 
@@ -219,17 +247,26 @@ colo_corpus <- Corpus(VectorSource(colo_tweets)) %>%
   tm_map(stemDocument) %>% 
   tm_map(removeWords, stopwords("english"))
 
-colo_dtm <- DocumentTermMatrix(colo_corpus)
-colo_dtm <- removeSparseTerms(colo_dtm, 0.999999)
+colo_dtm <- DocumentTermMatrix(colo_corpus) %>% 
+  removeSparseTerms(0.98)
+
+
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
+word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
 cos_dist <- cosine(colo_matrix) # calculate cosine metric
 cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
-hc <-hclust(cos_dist)
+hc <-hclust(cos_dist) %>% 
+  as.dendrogram()
 
-dendro <- as.dendrogram(hc)
-ddata <- dendro_data(dendro, type="rectangle")
+hc %>% plot()
 
-ggdendrogram(hc, rotate = FALSE, size = 2)
+hc %>% labels
+
+hc %>% nleaves
+
+hc %>% nnodes
+
+hc %>% head
 
 # prepare dendogram
 dendro <- dendro_data(hc, type="rectangle") # convert for ggplot
