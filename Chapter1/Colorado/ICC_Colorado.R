@@ -46,7 +46,10 @@ colorado <- colorado %>% # Removing retweets
 colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
 
 TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
-                     "i like that b", "playboy ranks", "it's a rock","bear","hike","football",
+                     "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
+                     
+                     
+                     
                      "أصلا", "эт",  "рима", "комуто", "из", "жизнь", "детк", "αnd", "يعوض")
 
 "يا"                    "وين"                  "وناوي"                 "ولييييي"               "وانا"                 
@@ -176,7 +179,7 @@ create_histo(InputFile = colo_clusters, HistoColor = NA, HistoBinWidth = 3600,
              HistoName = "gen_hist_1h", SavePath = "Outputs")
 
 
-####################### CORPUSES PREPARATION AND WORDCLOUDS #################################################
+####################### WORDCLOUDS #################################################
 
 # The list of valid options
 stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
@@ -230,11 +233,42 @@ lapply(stages, create_wordcloud)
 colo_tweets <- colo_clusters %>%
   filter(cluster == "1" | cluster == "2" | flood_stage == "Pre_flood") %>% 
   st_set_geometry(NULL) %>% 
-  select(tweet) %>% 
-  rename(text = `tweet`) %>% 
-  iconv(to = "utf-8", sub="") %>% 
-  tolower() %>%
-  {gsub("@*", "", .)} %>% # remove at
+  rename(text = `tweet`)
+
+
+%>% 
+  select(tweet) 
+
+colo_tokens <- colo_tweets %>%
+  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
+  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
+  anti_join(stop_words)%>%
+  # mutate(word = wordStem(word))%>%
+  count(word, sort = TRUE) 
+
+tweet_words <- colo_tokens %>%  
+  ungroup()
+
+total_words <- tweet_words %>% 
+  group_by(document) %>% 
+  summarize(total = sum(n))
+
+tidy_tweets %>%
+  count(document, word, sort=TRUE)
+
+
+
+colo_dtm <- colo_tweets %>%
+  unnest_tokens(word, text) %>%
+  count(text, word) %>%
+  cast_dtm(text, word, n)
+
+
+colo_tweets <- colo_tweets %>% 
+  {gsub("@*", "", .)}
+
+
+%>% # remove at
   {gsub("#\\w+", "", .)} %>% 
   {gsub("http[^[:space:]]*", "", .)} %>% # remove url
   {gsub("[^[:alpha:][:space:]]*", "", .)} # remove punctuation
@@ -250,8 +284,14 @@ colo_corpus <- Corpus(VectorSource(colo_tweets)) %>%
 colo_dtm <- DocumentTermMatrix(colo_corpus) %>% 
   removeSparseTerms(0.98)
 
+colo_dtm <- colo_dtm %>% 
+  removeSparseTerms(0.98)
+
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
+
+colo_matrix <- colo_matrix[complete.cases(colo_matrix), ]
+
 word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
 cos_dist <- cosine(colo_matrix) # calculate cosine metric
 cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
