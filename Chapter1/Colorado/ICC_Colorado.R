@@ -233,11 +233,9 @@ lapply(stages, create_wordcloud)
 colo_tweets <- colo_clusters %>%
   filter(cluster == "1" | cluster == "2" | flood_stage == "Pre_flood") %>% 
   st_set_geometry(NULL) %>% 
-  rename(text = `tweet`)
-
-
-%>% 
-  select(tweet) 
+  rename(text = `tweet`) %>% 
+  select(text) %>% 
+  mutate(document = row_number())
 
 colo_tokens <- colo_tweets %>%
   unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
@@ -287,10 +285,15 @@ colo_dtm <- DocumentTermMatrix(colo_corpus) %>%
 colo_dtm <- colo_dtm %>% 
   removeSparseTerms(0.98)
 
-
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
 
 colo_matrix <- colo_matrix[complete.cases(colo_matrix), ]
+
+colo_distMatrix <- dist(scale(colo_matrix), method = "manhattan")
+colo_textcluster <- hclust(colo_distMatrix, method = "ward.D2")
+
+### THE PROBLEM AT THIS POINT IS THAT i HAVEN'T TRIED TO DELETE THE OTHER COLUMNS
+### fOR TOMORROW TRY TO DO THAT BEFORE CREATING THE DTM
 
 word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
 cos_dist <- cosine(colo_matrix) # calculate cosine metric
