@@ -47,34 +47,6 @@ colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case
 
 TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
                      "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
-                     
-                     
-                     
-                     "أصلا", "эт",  "рима", "комуто", "из", "жизнь", "детк", "αnd", "يعوض")
-
-"يا"                    "وين"                  "وناوي"                 "ولييييي"               "وانا"                 
-[7] "والمسآعي"              "هواياتي"               "هههههه"               
-[10] "هذا"                   "نمنا"                  "نحن"                  
-[13] "نافعا"                 "من"                    "ممر"                  
-[16] "مكان"                  "مفتون"                 "مرة"                  
-[19] "مدامك"                 "ما"                    "ليوم"                 
-[22] "لا"                    "كلها"                  "كل"                   
-[25] "قلبي"                  "فنحن"                  "عليهم"                
-[28] "عذاب"                  "عادي"                  "طين"                  
-[31] "طباخنا"                "طآل"                   "صيبا"                 
-[34] "صيب"                   "صبره"                  "سلام"                 
-[37] "رحمتك"                 "رب"                    "خليته"                
-[40] "حاقده"                 "جالس"                  "توافيق"               
-[43] "تقفل"                  "تغررررق"               "بوولدر"               
-[46] "بايع"                  "بانتظاركم"             "بالله"                
-[49] "اليوم"                 "اللهم"                 "العمر"                
-[52] "العشره"                "العتيبي"               "العبط"                
-[55] "الشقة"                 "الدين"                 "التجمع"               
-[58] "الانجنيرينق"           "الابواب"               "اصلا"                 
-[61] "اسوق"                  "اسألك"                 "احب"                  
-[64] "ابي"                   "ابتسم"                 "ابتسامتها"            
-[67] "إستراحة"               "ؤالله"                 "أمه"
-, 
 
 # Here is to remove tweets from bots
 # grepl function doesn't take all elements in the vector.
@@ -237,71 +209,65 @@ colo_tweets <- colo_clusters %>%
   select(text) %>% 
   mutate(document = row_number())
 
+### NOT WORKING NOW
+# colo_tweets$text <- colo_tweets$text %>% 
+#   {gsub("@*", "", .)} %>% # remove at
+#   {gsub("#\\w+", "", .)} %>% 
+#   {gsub("http[^[:space:]]*", "", .)} %>% # remove url
+#   {gsub("[^[:alpha:][:space:]]*", "", .)} # remove punctuation
+
+
+# reg <- "([^A-Za-z_\\d#@']|'(?![A-Za-z_\\d#@]))"
+# 
+# tidy_tweets <- colo_tweets %>% 
+#   filter(!str_detect(text, "^RT")) %>%
+#   mutate(text = str_replace_all(text, "https://t.co/[A-Za-z\\d]+|http://[A-Za-z\\d]+|&amp;|&lt;|&gt;|RT|https", "")) %>%
+#   unnest_tokens(word, text, token = "regex", pattern = reg) %>%
+#   filter(!word %in% stop_words$word,
+#          str_detect(word, "[a-z]")) %>% 
+#   ungroup()
+# 
+# colo_dtm <- tidy_tweets %>%
+#   count(document, word) %>%
+#   cast_tdm(word, document, n)
+# 
+# total_words <- tweet_words %>% 
+#   group_by(document) %>% 
+#   summarize(total = sum(n))
+#################### 
+
+Encoding(colo_tweets$text)  <- "UTF-8"
+
 colo_tokens <- colo_tweets %>%
   unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
   filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
-  anti_join(stop_words)%>%
-  # mutate(word = wordStem(word))%>%
-  count(word, sort = TRUE) 
+  anti_join(stop_words)
 
-tweet_words <- colo_tokens %>%  
-  ungroup()
-
-total_words <- tweet_words %>% 
-  group_by(document) %>% 
-  summarize(total = sum(n))
-
-tidy_tweets %>%
-  count(document, word, sort=TRUE)
+colo_dtm <- colo_tokens %>%
+  count(document, word) %>%
+  cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
 
 
 
-colo_dtm <- colo_tweets %>%
-  unnest_tokens(word, text) %>%
-  count(text, word) %>%
-  cast_dtm(text, word, n)
 
-
-colo_tweets <- colo_tweets %>% 
-  {gsub("@*", "", .)}
-
-
-%>% # remove at
-  {gsub("#\\w+", "", .)} %>% 
-  {gsub("http[^[:space:]]*", "", .)} %>% # remove url
-  {gsub("[^[:alpha:][:space:]]*", "", .)} # remove punctuation
-
-
-colo_corpus <- Corpus(VectorSource(colo_tweets)) %>% 
-  tm_map(removePunctuation) %>% 
-  tm_map(removeNumbers) %>% 
-  tm_map(stripWhitespace) %>% 
-  tm_map(stemDocument) %>% 
-  tm_map(removeWords, stopwords("english"))
-
-colo_dtm <- DocumentTermMatrix(colo_corpus) %>% 
-  removeSparseTerms(0.98)
-
-colo_dtm <- colo_dtm %>% 
-  removeSparseTerms(0.98)
+colo_dtm <- colo_dtm %>%  # Not sure if now I need this
+  removeSparseTerms(0.995)
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
-
-colo_matrix <- colo_matrix[complete.cases(colo_matrix), ]
-
-colo_distMatrix <- dist(scale(colo_matrix), method = "manhattan")
-colo_textcluster <- hclust(colo_distMatrix, method = "ward.D2")
-
-### THE PROBLEM AT THIS POINT IS THAT i HAVEN'T TRIED TO DELETE THE OTHER COLUMNS
-### fOR TOMORROW TRY TO DO THAT BEFORE CREATING THE DTM
-
+colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
 word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
-cos_dist <- cosine(colo_matrix) # calculate cosine metric
-cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
-hc <-hclust(cos_dist) %>% 
-  as.dendrogram()
+cos_dist <- as.dist(1-cor(t(colo_matrix))) # convert to dissimilarity distances
 
-hc %>% plot()
+hc <- hclust(cos_dist, "ward.D")
+
+clustering <- cutree(hc, 7)
+
+plot(hc, main = "Hierarchical clustering of ",
+     ylab = "", xlab = "", yaxt = "n")
+
+rect.hclust(hc, 7, border = "red")
+
+hc %>% plot() 
 
 hc %>% labels
 
@@ -311,64 +277,9 @@ hc %>% nnodes
 
 hc %>% head
 
-# prepare dendogram
-dendro <- dendro_data(hc, type="rectangle") # convert for ggplot
-cutForCluster <- cutree(hc, k= 3) # k is the number of clusters
-
-word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
-
-clust.df <- data.frame(label=names(cutForCluster), cluster=factor(cutForCluster), 
-                       freq=word_freqs)
-# dendr[["labels"]] has the labels, merge with clust.df based on label column
-dendro[["labels"]] <- merge(dendro[["labels"]], clust.df, by="label")
-
-# plot the dendrogram; note use of color=cluster in geom_text(...)
-Dendogram <- ggplot() + 
-  geom_segment(data=segment(dendro), aes(x=x, y=y, xend=xend, yend=yend),
-               size = 0.4, colour = " Dark gray") +
-  geom_text(data=label(dendro), aes(x, y, label=label, hjust=0, color=cluster), 
-            size=7) + coord_flip() + scale_y_reverse(expand=c(0.5, 0)) +
-  theme(axis.line.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.title.y=element_blank(),
-        panel.background=element_rect(fill=NULL),
-        panel.grid=element_blank())+
-  scale_color_manual(values = brewer.pal(nclusters, palette),
-                     guide = 'none')
-Dendogram <- Dendogram + theme_void()
-
-Dendogram
-ggsave(filename = OutFile, plot = Dendogram, path = OutFolder, width=5, 
-       height=10, units="in", dpi = 300, bg = "White")
-# colors defined by http://tools.medialab.sciences-po.fr/iwanthue/
 
 
 
-######################################
-# Creating dendograms
 
-create_dendogram(DTMInput = dtm_colorado , sparceFactor = 0.98, nclusters = 6, 
-                 OutFolder = OutputsFile,
-                 OutFile = "Dendogram.png",
-                 palette = "Accent")
 
-create_dendogram(DTMInput = dtm_colpre, sparceFactor = 0.98, nclusters = 7, 
-                 OutFolder = OutputsFile,
-                 OutFile = "Dendogram_colpre.png",
-                 palette = "Set2")
 
-create_dendogram(DTMInput = dtm_colFlood, sparceFactor = 0.98, nclusters = 6, 
-                 OutFolder = OutputsFile,
-                 OutFile = "Dendogram_colFlood.png",
-                 palette = "Accent")
-
-create_dendogram(DTMInput = dtm_col_ia, sparceFactor = 0.98, nclusters = 9, 
-                 OutFolder = OutputsFile,
-                 OutFile = "Dendogram_col_ia.png",
-                 palette = "Set3")
-
-create_dendogram(DTMInput = dtm_col_post, sparceFactor = 0.98, nclusters = 9, 
-                 OutFolder = OutputsFile,
-                 OutFile = "Dendogram_col_post.png",
-                 palette = "Set3")
