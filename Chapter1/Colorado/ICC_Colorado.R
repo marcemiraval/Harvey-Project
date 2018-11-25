@@ -238,48 +238,51 @@ colo_tweets <- colo_clusters %>%
 
 Encoding(colo_tweets$text)  <- "UTF-8"
 
+reg <- "([^A-Za-z_\\d#@']|'(?![A-Za-z_\\d#@]))"
+
 colo_tokens <- colo_tweets %>%
   unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
   filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
   anti_join(stop_words)
 
+
+colo_tokens <- colo_tweets %>%
+  filter(!str_detect(text, "^RT")) %>%
+  mutate(text = str_replace_all(text, "https://t.co/[A-Za-z\\d]+|http://[A-Za-z\\d]+|&amp;|&lt;|&gt;|RT|https", "")) %>%
+  unnest_tokens(word, text, token = "regex", pattern = reg) %>%
+  filter(!word %in% stop_words$word,
+         str_detect(word, "[a-z]"))
+
+
 colo_dtm <- colo_tokens %>%
   count(document, word) %>%
   cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
 
-
-
-
 colo_dtm <- colo_dtm %>%  # Not sure if now I need this
-  removeSparseTerms(0.995)
+  removeSparseTerms(0.9975)
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
 colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
 word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
-cos_dist <- as.dist(1-cor(t(colo_matrix))) # convert to dissimilarity distances
 
+cos_dist <- cosine(colo_matrix) # calculate cosine metric
+
+cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
+
+hc <- hclust(cos_dist)
 hc <- hclust(cos_dist, "ward.D")
 
-clustering <- cutree(hc, 7)
+## hierarchical clustering
+library(proxy)
 
-plot(hc, main = "Hierarchical clustering of ",
+### this is going to take 4-ever (O(n^2))
+d <- dist(colo_matrix, method="cosine")
+hc <- hclust(d, method="average")
+
+plot(hc, horiz=TRUE, main = "Hierarchical clustering of 100 NIH grant abstracts",
      ylab = "", xlab = "", yaxt = "n")
 
-rect.hclust(hc, 7, border = "red")
-
-hc %>% plot() 
-
-hc %>% labels
-
-hc %>% nleaves
-
-hc %>% nnodes
-
-hc %>% head
-
-
-
-
+rect.hclust(hc, 7, border = "red") #Play with that number and colors later
 
 
 
