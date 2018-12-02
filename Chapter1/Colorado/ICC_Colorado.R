@@ -20,8 +20,8 @@ library(EWEReporting) # My package to use function to create_corpus function.
 #Install this function using devtools package
 
 library(proxy) # To use "cosine" as method to compute distance
-
-
+library(reshape2) # To use melt function
+library(cluster) # For silhouette coefficient
 
 
 library(lsa) # To compute cosine metric
@@ -204,7 +204,7 @@ lapply(stages, create_wordcloud)
 
 colo_tweets <- colo_clusters %>%
   filter(cluster == "1" | cluster == "2"| flood_stage == "Post_Flood") %>% 
-#  filter(cluster == "1" ) %>% 
+  # filter(cluster == "1" | cluster == "2") %>% 
   st_set_geometry(NULL) %>% 
   rename(text = `tweet`) %>% 
   select(text) %>% 
@@ -227,20 +227,45 @@ colo_dtm <- colo_tokens %>%
   cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
 
 colo_dtm <- colo_dtm %>%  # Not sure if now I need this
-  removeSparseTerms(0.9925)
+  removeSparseTerms(0.9975)
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
 colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
 
 d <- dist(colo_matrix, method="cosine")
-hc <- hclust(d, method="average") 
+
+# Using Silhouette coefficient to compute optimum number of clusters
+# See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
+
+methds <- c('complete','average', 'single', 'ward.D', 'ward.D2')
+avgS <- matrix(NA,ncol=5,nrow=80,
+               dimnames=list(2:81,methds))
+
+for(k in 2:81) 
+  for(m in seq_along(methds)) {
+    h <- hclust(d,meth=methds[m])
+    c <- cutree(h,k)
+    s <- silhouette(c,d)
+    avgS[k-1,m] <- mean(s[,3])
+  }
+
+dt <- melt(avgS) # formatted as dataframe in long format
+colnames(dt) <- c("NClusts","Meth","AvgS")
+
+ggplot(dt,aes(x=NClusts,y=AvgS,color=Meth)) + 
+  geom_line()
+
+# hc <- hclust(d, method="average") 
+# hc <- hclust(d, method="single") 
+# hc <- hclust(d, method="ward.D2")
+# hc <- hclust(d, method="complete")
 hc <- hclust(d, method="ward.D") #It seems that this works better
 
 plot(hc, main = "Hierarchical clustering of Reports on Colorado Floods", 
      sub = "Colorado Clusters & Post-Flood",
      ylab = "", xlab = "", yaxt = "n", horiz = TRUE)
 
-rect.hclust(hc, 9, border = "red") #Play with that number and colors later
+rect.hclust(hc, 5, border = "red") #Play with that number and colors later
 
 
 
