@@ -19,6 +19,8 @@ library(stringr) # For str_to_lower
 library(EWEReporting) # My package to use function to create_corpus function. 
 #Install this function using devtools package
 
+library(proxy) # To use "cosine" as method to compute distance
+
 
 
 
@@ -83,17 +85,17 @@ max_datetime <- "2013-09-30 23:52:05 PDT"
 colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
 
 # Ye's stages 
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
-                             colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" &
-                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
+#                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" &
+#                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 # And the Inmmediate aftermath and post_flood are the same
 
 # My stages
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
-#                              colo_tweets_sf$date < "2013-09-11 12:00:00 PDT"] = "Pre_flood"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 12:00:00 PDT" & 
-#                              colo_tweets_sf$date < "2013-09-12 12:00:00 PDT"] = "Flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
+                             colo_tweets_sf$date < "2013-09-11 12:00:00 PDT"] = "Pre_flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 12:00:00 PDT" &
+                             colo_tweets_sf$date < "2013-09-12 12:00:00 PDT"] = "Flood"
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
                              colo_tweets_sf$date < "2013-09-19 00:00:00 PDT"] = "Immediate_Aftermath"
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-19 00:00:00 PDT" &
@@ -164,8 +166,6 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
                "youre", "flood", "flooding", "floods", "flooded", "colo", "cu")
 
 
-# From here on we will be tidytexting
-
 create_wordcloud <- function(stage){
   
   #names(stage)
@@ -203,86 +203,45 @@ lapply(stages, create_wordcloud)
 ############## HIERACHICAL CLUSTERING ################################
 
 colo_tweets <- colo_clusters %>%
-  filter(cluster == "1" | cluster == "2" | flood_stage == "Pre_flood") %>% 
+  filter(cluster == "1" | cluster == "2"| flood_stage == "Post_Flood") %>% 
+#  filter(cluster == "1" ) %>% 
   st_set_geometry(NULL) %>% 
   rename(text = `tweet`) %>% 
   select(text) %>% 
   mutate(document = row_number())
 
-### NOT WORKING NOW
-# colo_tweets$text <- colo_tweets$text %>% 
-#   {gsub("@*", "", .)} %>% # remove at
-#   {gsub("#\\w+", "", .)} %>% 
-#   {gsub("http[^[:space:]]*", "", .)} %>% # remove url
-#   {gsub("[^[:alpha:][:space:]]*", "", .)} # remove punctuation
-
-
-# reg <- "([^A-Za-z_\\d#@']|'(?![A-Za-z_\\d#@]))"
-# 
-# tidy_tweets <- colo_tweets %>% 
-#   filter(!str_detect(text, "^RT")) %>%
-#   mutate(text = str_replace_all(text, "https://t.co/[A-Za-z\\d]+|http://[A-Za-z\\d]+|&amp;|&lt;|&gt;|RT|https", "")) %>%
-#   unnest_tokens(word, text, token = "regex", pattern = reg) %>%
-#   filter(!word %in% stop_words$word,
-#          str_detect(word, "[a-z]")) %>% 
-#   ungroup()
-# 
-# colo_dtm <- tidy_tweets %>%
-#   count(document, word) %>%
-#   cast_tdm(word, document, n)
-# 
-# total_words <- tweet_words %>% 
-#   group_by(document) %>% 
-#   summarize(total = sum(n))
-#################### 
-
 Encoding(colo_tweets$text)  <- "UTF-8"
 
-reg <- "([^A-Za-z_\\d#@']|'(?![A-Za-z_\\d#@]))"
+ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
+               "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
+               "lol", "@dailycamera", "colorado", "ive", "youre")
 
 colo_tokens <- colo_tweets %>%
   unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
+  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExcludeDend)%>% 
+  # filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>% 
   anti_join(stop_words)
-
-
-colo_tokens <- colo_tweets %>%
-  filter(!str_detect(text, "^RT")) %>%
-  mutate(text = str_replace_all(text, "https://t.co/[A-Za-z\\d]+|http://[A-Za-z\\d]+|&amp;|&lt;|&gt;|RT|https", "")) %>%
-  unnest_tokens(word, text, token = "regex", pattern = reg) %>%
-  filter(!word %in% stop_words$word,
-         str_detect(word, "[a-z]"))
-
 
 colo_dtm <- colo_tokens %>%
   count(document, word) %>%
   cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
 
 colo_dtm <- colo_dtm %>%  # Not sure if now I need this
-  removeSparseTerms(0.9975)
+  removeSparseTerms(0.9925)
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
 colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
-word_freqs = sort(colSums(colo_matrix), decreasing=TRUE)
 
-cos_dist <- cosine(colo_matrix) # calculate cosine metric
-
-cos_dist <- as.dist(1- cos_dist) # convert to dissimilarity distances
-
-hc <- hclust(cos_dist)
-hc <- hclust(cos_dist, "ward.D")
-
-## hierarchical clustering
-library(proxy)
-
-### this is going to take 4-ever (O(n^2))
 d <- dist(colo_matrix, method="cosine")
-hc <- hclust(d, method="average")
+hc <- hclust(d, method="average") 
+hc <- hclust(d, method="ward.D") #It seems that this works better
 
-plot(hc, horiz=TRUE, main = "Hierarchical clustering of 100 NIH grant abstracts",
-     ylab = "", xlab = "", yaxt = "n")
+plot(hc, main = "Hierarchical clustering of Reports on Colorado Floods", 
+     sub = "Colorado Clusters & Post-Flood",
+     ylab = "", xlab = "", yaxt = "n", horiz = TRUE)
 
-rect.hclust(hc, 7, border = "red") #Play with that number and colors later
+rect.hclust(hc, 9, border = "red") #Play with that number and colors later
+
 
 
 
