@@ -172,7 +172,9 @@ create_wordcloud <- function(stage){
   #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
   
   colo_tweets <- colo_clusters %>%
-    filter(cluster == "1" | cluster == "2" | flood_stage == stage) %>% 
+    # filter(cluster == "1" | cluster == "2") %>%
+    filter(cluster == "1") %>%
+    filter(flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
     rename(text = `tweet`) 
@@ -204,8 +206,9 @@ lapply(stages, create_wordcloud)
 
 colo_tweets <- colo_clusters %>%
   # filter(cluster == "1" & flood_stage == "Post_Flood") %>% 
-  filter(cluster == "1") %>% 
-  # filter(cluster == "1" | cluster == "2") %>% 
+  filter(cluster == "2") %>% 
+  # filter(cluster == "1" | cluster == "2") %>%
+  filter(flood_stage == "Flood") %>%
   st_set_geometry(NULL) %>% 
   rename(text = `tweet`) %>% 
   select(text) %>% 
@@ -232,7 +235,7 @@ colo_dtm <- colo_tokens %>% ## CREO QUE ESTE ES EL QUE SIRVE
   cast_dtm(document, word, n) # Check but I think dtm or tdm depends on the parameters' order.
 
 colo_dtm <- colo_dtm %>%  # Not sure if now I need this
-  removeSparseTerms(0.9925)
+  removeSparseTerms(0.9975)
 
 colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
 colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
