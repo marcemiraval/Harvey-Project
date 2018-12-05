@@ -85,20 +85,20 @@ max_datetime <- "2013-09-30 23:52:05 PDT"
 colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
 
 # Ye's stages 
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
 #                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" &
+# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
 #                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 # And the Inmmediate aftermath and post_flood are the same
 
 # My stages
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime &
-                             colo_tweets_sf$date < "2013-09-11 12:00:00 PDT"] = "Pre_flood"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 12:00:00 PDT" &
-                             colo_tweets_sf$date < "2013-09-12 12:00:00 PDT"] = "Flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
+                             colo_tweets_sf$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 00:00:00 PDT" & 
+                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
-                             colo_tweets_sf$date < "2013-09-19 00:00:00 PDT"] = "Immediate_Aftermath"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-19 00:00:00 PDT" &
+                             colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
+colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
 
 
@@ -163,7 +163,7 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
                "will","septemb", "amp", "lol", "#boulder", "im", "#coloradostrong", 
                "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
                "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", 
-               "youre", "flood", "flooding", "floods", "flooded", "colo", "cu")
+               "youre", "flood", "flooding", "floods", "flooded", "colo", "cu", "denver", "county")
 
 
 create_wordcloud <- function(stage){
@@ -172,8 +172,8 @@ create_wordcloud <- function(stage){
   #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
   
   colo_tweets <- colo_clusters %>%
-    # filter(cluster == "1" | cluster == "2") %>%
-    filter(cluster == "1") %>%
+    filter(cluster == "1" | cluster == "2") %>%
+    # filter(cluster == "1") %>%
     filter(flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
