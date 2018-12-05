@@ -204,98 +204,102 @@ lapply(stages, create_wordcloud)
 
 ############## HIERACHICAL CLUSTERING ################################
 
-colo_tweets <- colo_clusters %>%
-  # filter(cluster == "1" & flood_stage == "Post_Flood") %>% 
-  filter(cluster == "2") %>% 
-  # filter(cluster == "1" | cluster == "2") %>%
-  filter(flood_stage == "Flood") %>%
-  st_set_geometry(NULL) %>% 
-  rename(text = `tweet`) %>% 
-  select(text) %>% 
-  mutate(document = row_number())
-
-Encoding(colo_tweets$text)  <- "UTF-8"
-
-ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
-               "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
-               "lol", "@dailycamera", "colorado", "ive", "youre")
-
-colo_tokens <- colo_tweets %>%
-  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExcludeDend)%>% 
-  # filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>% 
-  anti_join(stop_words)
-
-# colo_dtm <- colo_tokens %>%
-#   count(document, word) %>%
-#   cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
-
-colo_dtm <- colo_tokens %>% ## CREO QUE ESTE ES EL QUE SIRVE
-  count(document, word) %>%
-  cast_dtm(document, word, n) # Check but I think dtm or tdm depends on the parameters' order.
-
-colo_dtm <- colo_dtm %>%  # Not sure if now I need this
-  removeSparseTerms(0.9975)
-
-colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
-colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
-
-d <- dist(colo_matrix, method="cosine")
-
-# Using Silhouette coefficient to compute optimum number of clusters
-# See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
-
-methds <- c('complete','average', 'single', 'ward.D', 'ward.D2')
-avgS <- matrix(NA,ncol=5,nrow=10,
-               dimnames=list(2:11,methds))
-
-for(k in 2:11) 
-  for(m in seq_along(methds)) {
-    h <- hclust(d,meth=methds[m])
-    c <- cutree(h,k)
-    s <- silhouette(c,d)
-    avgS[k-1,m] <- mean(s[,3])
-  }
-
-dt <- melt(avgS) # formatted as dataframe in long format
-colnames(dt) <- c("NClusts","Meth","AvgS")
-
-ggplot(dt,aes(x=NClusts,y=AvgS,color=Meth)) + 
-  geom_line()
-
-# hc <- hclust(d, method="average") 
-# hc <- hclust(d, method="single") 
-# hc <- hclust(d, method="ward.D2")
-# hc <- hclust(d, method="complete")
-hc <- hclust(d, method="ward.D") #It seems that this works better
-
-plot(hc, main = "Hierarchical clustering of Reports on Colorado Floods", 
-     sub = "Colorado Clusters & Post-Flood",
-     ylab = "", xlab = "", yaxt = "n", horiz = TRUE)
-
-rect.hclust(hc, 3, border = "red") #Play with that number and colors later
-
-clustering <- cutree(hc, 3)
-
-p_words <- colSums(colo_matrix) / sum(colo_matrix)
-
-cluster_words <- lapply(unique(clustering), function(x){
-  rows <- colo_matrix[ clustering == x , ]
+def_cluster_n <- function(stage){
   
-  # for memory's sake, drop all words that don't appear in the cluster
-  rows <- rows[ , colSums(rows) > 0 ]
+  colo_tweets <- colo_clusters %>% 
+    # filter(cluster == "1") %>% 
+    # filter(cluster == "2") %>% 
+    filter(cluster == "1" | cluster == "2") %>%
+    filter(flood_stage == stage) %>%
+    st_set_geometry(NULL) %>% 
+    rename(text = `tweet`) %>% 
+    select(text) %>% 
+    mutate(document = row_number())
   
-  colSums(rows) / sum(rows) - p_words[ colnames(rows) ]
-})
+  Encoding(colo_tweets$text)  <- "UTF-8"
+  
+  ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
+                     "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
+                     "lol", "@dailycamera", "colorado", "ive", "youre")
+  
+  colo_tokens <- colo_tweets %>%
+    unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
+    filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExcludeDend)%>% 
+    # filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>% 
+    anti_join(stop_words)
+  
+  # colo_dtm <- colo_tokens %>%
+  #   count(document, word) %>%
+  #   cast_tdm(word, document, n) # Check but I think dtm or tdm depends on the parameters' order.
+  
+  colo_dtm <- colo_tokens %>% ## CREO QUE ESTE ES EL QUE SIRVE
+    count(document, word) %>%
+    cast_dtm(document, word, n) # Check but I think dtm or tdm depends on the parameters' order.
+  
+  colo_dtm <- colo_dtm %>%  # Not sure if now I need this
+    removeSparseTerms(0.9975)
+  
+  colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
+  colo_matrix <- colo_matrix[complete.cases(colo_matrix), ] #Not sure about this
+  
+  d <- dist(colo_matrix, method="cosine")
+  
+  # Using Silhouette coefficient to compute optimum number of clusters
+  # See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
+  
+  methds <- c('complete','average', 'single', 'ward.D', 'ward.D2')
+  avgS <- matrix(NA,ncol=5,nrow=10,
+                 dimnames=list(2:11,methds))
+  
+  for(k in 2:11) 
+    for(m in seq_along(methds)) {
+      h <- hclust(d,meth=methds[m])
+      c <- cutree(h,k)
+      s <- silhouette(c,d)
+      avgS[k-1,m] <- mean(s[,3])
+    }
+  
+  dt <- melt(avgS) # formatted as dataframe in long format
+  colnames(dt) <- c("NClusts","Meth","AvgS")
+  
+  ggplot(dt,aes(x=NClusts,y=AvgS,color=Meth)) + 
+    geom_line()
+  
+  hc <- hclust(d, method="ward.D") #It seems that this works better
+  
+  # plot(hc, main = "Hierarchical clustering of Reports on Colorado Floods", 
+  #      sub = "Colorado Clusters & Post-Flood",
+  #      ylab = "", xlab = "", yaxt = "n", horiz = TRUE)
+  
+  # rect.hclust(hc, 3, border = "red") #Play with that number and colors later
+  
+  clustering <- cutree(hc, 3)
+  
+  p_words <- colSums(colo_matrix) / sum(colo_matrix)
+  
+  cluster_words <- lapply(unique(clustering), function(x){
+    rows <- colo_matrix[ clustering == x , ]
+    
+    # for memory's sake, drop all words that don't appear in the cluster
+    rows <- rows[ , colSums(rows) > 0 ]
+    
+    colSums(rows) / sum(rows) - p_words[ colnames(rows) ]
+  })
+  
+  cluster_summary <- data.frame(cluster = unique(clustering),
+                                size = as.numeric(table(clustering)),
+                                top_words = sapply(cluster_words, function(d){
+                                  paste(
+                                    names(d)[ order(d, decreasing = TRUE) ][ 1:5 ], 
+                                    collapse = ", ")
+                                }),
+                                stringsAsFactors = FALSE)
+  cluster_summary
+}
 
-cluster_summary <- data.frame(cluster = unique(clustering),
-                              size = as.numeric(table(clustering)),
-                              top_words = sapply(cluster_words, function(d){
-                                paste(
-                                  names(d)[ order(d, decreasing = TRUE) ][ 1:5 ], 
-                                  collapse = ", ")
-                              }),
-                              stringsAsFactors = FALSE)
-cluster_summary
+lapply(stages, def_cluster_n)
+
+
+
 
 
