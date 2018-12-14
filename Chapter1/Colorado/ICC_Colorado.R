@@ -2,11 +2,11 @@ library(tidyverse) # For ggplot. Nice plots.
 library(lubridate) # Play nicely with dates
 library(sf) # Spatial monster
 library(scales) # for date_breaks function
-library(dplyr)
+# library(dplyr)
 
 # For spatial clustering
 library(dbscan)
-library(fpc) # Check if this is necessary
+# library(fpc) # Check if this is necessary
 library(leaflet)
 library(htmltools)
 
@@ -22,12 +22,8 @@ library(EWEReporting) # My package to use function to create_corpus function.
 library(proxy) # To use "cosine" as method to compute distance
 library(reshape2) # To use melt function
 library(cluster) # For silhouette coefficient
-
-
 library(lsa) # To compute cosine metric
-# library(ggdendro)
-# 
-# library(dendextend)
+
 
 
 
@@ -46,12 +42,10 @@ colorado <- colorado %>% # Removing retweets
   filter(!str_detect(t_text, "^RT"))
 
 colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
-# 
-# TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs",
-#                      "i like that b", "playboy ranks")
 
-TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs", "game","shirts",
-                     "i like that b", "playboy ranks", "it's a rock","bear","hike","football")
+TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs",
+                     "i like that b", "playboy ranks")
+
 
 # Here is to remove tweets from bots
 # grepl function doesn't take all elements in the vector.
@@ -171,7 +165,7 @@ create_histo(InputFile = colo_cluster_boulder, HistoColor = NA, HistoBinWidth = 
 ####################### WORDCLOUDS #################################################
 
 # The list of valid options
-stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
+stages <- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
 
 # Using my corpus function
 ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
@@ -182,13 +176,10 @@ ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like"
 
 
 create_wordcloud <- function(stage){
-  
-  #names(stage)
-  #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
-  
+
   colo_tweets <- colo_clusters %>%
     # filter(cluster == "1" | cluster == "2") %>%
-    filter(cluster == "2") %>%
+    filter(cluster == "1") %>%
     filter(flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
@@ -219,12 +210,13 @@ lapply(stages, create_wordcloud)
 
 ############## HIERACHICAL CLUSTERING ################################
 
-def_cluster_n <- function(stage){
+
+
+
+def_cluster_n <- function(stage, clusterID){
   
   colo_tweets <- colo_clusters %>% 
-    filter(cluster == "2") %>%
-    # filter(cluster == "2") %>% 
-    # filter(cluster == "1" | cluster == "2") %>%
+    filter(cluster == clusterID) %>%
     filter(flood_stage == stage) %>%
     st_set_geometry(NULL) %>% 
     rename(text = `tweet`) %>% 
@@ -259,11 +251,13 @@ def_cluster_n <- function(stage){
   
   d <- dist(colo_matrix, method="cosine")
   
+  dist_list <- list.append(dist_list, d)
+  
   # Using Silhouette coefficient to compute optimum number of clusters
   # See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
   
-  methds <- c('complete','average', 'single', 'ward.D', 'ward.D2')
-  avgS <- matrix(NA,ncol=5,nrow=20,
+  methds <- c('ward.D', 'ward.D2')
+  avgS <- matrix(NA,ncol=2,nrow=20,
                  dimnames=list(2:21,methds))
   
   for(k in 2:21) 
@@ -279,12 +273,36 @@ def_cluster_n <- function(stage){
   
   ggplot(dt,aes(x=NClusts,y=AvgS,color=Meth)) + 
     geom_line()
-
-
+  
+  return(d) #Name objects in the list and look for a way to return two things with lapply d and the ggplots
 }
 
-lapply(stages, def_cluster_n)
+dists_Denver <- lapply(stages, def_cluster_n, clusterID = "1")
 
+hc <- hclust(d, method="ward.D") #It seems that this works better
+
+clustering <- cutree(hc, 2)
+
+p_words <- colSums(colo_matrix) / sum(colo_matrix)
+
+cluster_words <- lapply(unique(clustering), function(x){
+  rows <- colo_matrix[ clustering == x , ]
+  
+  # for memory's sake, drop all words that don't appear in the cluster
+  rows <- rows[ , colSums(rows) > 0 ]
+  
+  colSums(rows) / sum(rows) - p_words[ colnames(rows) ]
+})
+
+cluster_summary <- data.frame(cluster = unique(clustering),
+                              size = as.numeric(table(clustering)),
+                              top_words = sapply(cluster_words, function(d){
+                                paste(
+                                  names(d)[ order(d, decreasing = TRUE) ][ 1:5 ], 
+                                  collapse = ", ")
+                              }),
+                              stringsAsFactors = FALSE)
+cluster_summary
 
 
 
