@@ -142,7 +142,8 @@ coloMap
 colo_clusters$flood_stage <- as.factor(colo_clusters$flood_stage)
 # levels(colo_clusters$flood_stage) # Checking levels and seeing order
 colo_clusters$flood_stage <- factor(colo_clusters$flood_stage,
-                                     levels(colo_clusters$flood_stage) [c(4,1,2,3)])#reorder factor levels for legend
+                                     levels(colo_clusters$flood_stage) [c(4,1,2,3)])
+#reorder factor levels for legend
 
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
@@ -210,10 +211,7 @@ lapply(stages, create_wordcloud)
 
 ############## HIERACHICAL CLUSTERING ################################
 
-
-
-
-def_cluster_n <- function(stage, clusterID){
+cosine_dist <- function(stage, clusterID){
   
   colo_tweets <- colo_clusters %>% 
     filter(cluster == clusterID) %>%
@@ -251,7 +249,12 @@ def_cluster_n <- function(stage, clusterID){
   
   d <- dist(colo_matrix, method="cosine")
   
-  dist_list <- list.append(dist_list, d)
+  return(d) 
+}
+
+dists_Denver <- lapply(stages, cosine_dist, clusterID = "1")
+
+plot_silhouette <- function(distancia){
   
   # Using Silhouette coefficient to compute optimum number of clusters
   # See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
@@ -262,9 +265,9 @@ def_cluster_n <- function(stage, clusterID){
   
   for(k in 2:21) 
     for(m in seq_along(methds)) {
-      h <- hclust(d,meth=methds[m])
+      h <- hclust(distancia, meth=methds[m])
       c <- cutree(h,k)
-      s <- silhouette(c,d)
+      s <- silhouette(c, distancia)
       avgS[k-1,m] <- mean(s[,3])
     }
   
@@ -273,11 +276,18 @@ def_cluster_n <- function(stage, clusterID){
   
   ggplot(dt,aes(x=NClusts,y=AvgS,color=Meth)) + 
     geom_line()
-  
-  return(d) #Name objects in the list and look for a way to return two things with lapply d and the ggplots
 }
 
-dists_Denver <- lapply(stages, def_cluster_n, clusterID = "1")
+
+silhouette_Denver <- lapply(dists_Denver, plot_silhouette)
+
+silhouette_Denver
+
+
+# Name objects in the list and look for a way to return two things with lapply
+# d and the ggplots
+
+
 
 hc <- hclust(d, method="ward.D") #It seems that this works better
 
