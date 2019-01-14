@@ -7,12 +7,12 @@ library(ROAuth)
 requestURL <- "https://api.twitter.com/oauth/request_token"
 accessURL <- "https://api.twitter.com/oauth/access_token"
 authURL <- "https://api.twitter.com/oauth/authorize"
-consumerKey <-"Zx6QiuJQXTvrpkbHHPntox5Xs"
-consumerSecret <-"TnE9bKf7FeEla5X1rqjkHgOcWjBqL0lCoGNJeWKEYa3KsEPpE5"
+consumerKey <- # Real Value in Generic Functions Folder
+consumerSecret <- # Real Value in Generic Functions Folder
 
 setup_twitter_oauth(consumerKey, consumerSecret, 
-                    access_token="274784775-9C4tOo68qtlGRJ56p7gJOQVj2kR3UhRfPHMSrpSS", 
-                    access_secret="9pXKEqQyY4MFbHtBhykB16SxYJBq0ENcXnPYWfJd4tDTO")
+                    access_token= # Real Value in Generic Functions Folder, 
+                    access_secret=)# Real Value in Generic Functions Folder
 
 lookupStatus <- function (ids, ...){
   lapply(ids, twitteR:::check_id)
