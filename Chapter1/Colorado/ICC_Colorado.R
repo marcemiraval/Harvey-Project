@@ -32,6 +32,7 @@ library(topicmodels)
 setwd ("Chapter1/Colorado")
 
 
+
 ####################### DATA CLEANING ###############################
 
 # Loading data into R
@@ -50,6 +51,7 @@ TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs",
 # grepl function doesn't take all elements in the vector.
 # So we have to paste them with an or stament like "i'm at|vegas"
 colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),] 
+
 
 
 ####################### DATA READING AND PROJECTING ###########################
@@ -71,6 +73,7 @@ colo_tweets_sf <- colorado %>%
                units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
 
 # st_crs(colo_tweets_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
+
 
 
 ######################### DEFINING TEMPORAL STAGES #####################################
@@ -97,6 +100,7 @@ colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
                              colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
 colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
                              colo_tweets_sf$date <= max_datetime] = "Post_Flood"
+
 
 
 ######################### SPATIAL CLUSTERING ####################################
@@ -136,6 +140,7 @@ coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting cluster
 coloMap
 
 
+
 ######################### HISTOGRAM ###########################################
 
 ## Making sure stages are defined as categorical variables
@@ -161,6 +166,7 @@ colo_cluster_boulder <- colo_clusters %>%
 
 create_histo(InputFile = colo_cluster_boulder, HistoColor = NA, HistoBinWidth = 3600,
              HistoName = "Boulder_hist_1h", SavePath = "Outputs")
+
 
 
 ####################### WORDCLOUDS #################################################
@@ -210,9 +216,11 @@ create_wordcloud <- function(stage){
 lapply(stages, create_wordcloud)
 
 
+
 ############## HIERACHICAL CLUSTERING ################################
 
-cosine_dist <- function(stage, clusterID){
+# Create DTM
+get_dtm <- function(stage, clusterID){ 
   
   colo_tweets <- colo_clusters %>% 
     filter(cluster == clusterID) %>%
@@ -224,14 +232,14 @@ cosine_dist <- function(stage, clusterID){
   
   Encoding(colo_tweets$text)  <- "UTF-8"
   
-  ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
-                     "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
-                     "@dailycamera", "colorado", "ive", "youre")
+  # ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
+  #                    "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
+  #                    "@dailycamera", "colorado", "ive", "youre", "boulder")
   
   colo_tokens <- colo_tweets %>%
     unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
     # filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExcludeDend)%>% 
-    filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>% 
+    filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>%
     anti_join(stop_words)
   
   colo_dtm <- colo_tokens %>% 
@@ -241,27 +249,35 @@ cosine_dist <- function(stage, clusterID){
   # colo_dtm <- colo_dtm %>%  # Only required for bigger datasets
   #   removeSparseTerms(0.9975)
   
-  colo_matrix <- as.matrix(colo_dtm) #Defining TermDocumentMatrix as matrix
+  return(colo_dtm) 
+}
 
+dtms_Denver <- lapply(stages, get_dtm, clusterID = "1")
+dtms_Boulder <- lapply(stages, get_dtm, clusterID = "2")
+
+# Compute Cosine Distance
+cosine_dist <- function(theDTM){
+  
+  colo_matrix <- as.matrix(theDTM) #Defining TermDocumentMatrix as matrix
   d <- dist(colo_matrix, method="cosine")
   
   return(d) 
 }
 
-dists_Denver <- lapply(stages, cosine_dist, clusterID = "1")
-dists_Boulder <- lapply(stages, cosine_dist, clusterID = "2")
+dists_Denver <- lapply(dtms_Denver, cosine_dist)
+dists_Boulder <- lapply(dtms_Boulder, cosine_dist)
 
-
+# Calculate "optimum" number of clusters
 plot_silhouette <- function(distancia){
   
   # Using Silhouette coefficient to compute optimum number of clusters
   # See example here: http://www.dcc.fc.up.pt/~ltorgo/DM1_1718/Rclustering.html
   
   methds <- c('ward.D', 'ward.D2')
-  avgS <- matrix(NA,ncol=2,nrow=15,
-                 dimnames=list(2:16,methds))
+  avgS <- matrix(NA,ncol=2,nrow=10,
+                 dimnames=list(2:11,methds))
   
-  for(k in 2:16) 
+  for(k in 2:11) 
     for(m in seq_along(methds)) {
       h <- hclust(distancia, meth=methds[m])
       c <- cutree(h,k)
@@ -282,17 +298,15 @@ silhouette_Denver
 silhouette_Boulder <- lapply(dists_Boulder, plot_silhouette)
 silhouette_Boulder
 
-# Name objects in the list. Add titles to the resulting plots #########################################################WORK
+# Name objects in the list. Add titles to the resulting plots!!!!!!!!! TO DO!!
 
-
-NClusts_Denver <- list(15, 16, 16, 3) # Values of 16 (max) is when the NClust can be defined easily
+NClusts_Denver <- list(2, 9, 2, 3) # These values are given in the silhouette plots
+NClusts_Boulder <- list(2, 8, 2, 2) # These values are given in the silhouette plots
 
 cluster_summary <- function(distancia, num_clusters){
   
   hc <- hclust(distancia, method="ward.D2") 
-  
   clustering <- cutree(hc, num_clusters)
-  
   p_words <- colSums(colo_matrix) / sum(colo_matrix)
   
   cluster_words <- lapply(unique(clustering), function(x){
@@ -317,44 +331,11 @@ cluster_summary <- function(distancia, num_clusters){
   
 }
 
-# Still need to use clusterSummary Function and get results #########################################################WORK
+# Still need to use clusterSummary Function and get results !!!!!!!!! TO DO!!
 
 
 
 ############## TOPIC MODELING ################################
-
-get_dtm <- function(stage, clusterID){ #This is the same cosine_distance function, just need to organize these functions
-  
-  colo_tweets <- colo_clusters %>% 
-    filter(cluster == clusterID) %>%
-    filter(flood_stage == stage) %>%
-    st_set_geometry(NULL) %>% 
-    rename(text = `tweet`) %>% 
-    select(text) %>% 
-    mutate(document = row_number())
-  
-  Encoding(colo_tweets$text)  <- "UTF-8"
-  
-  ToExcludeDend <- c("will","amp", "lol", "#boulder", "im", "dont", 
-                     "amp", "@noblebrett", "rt", "ill", "@stapletondenver",
-                     "@dailycamera", "colorado", "ive", "youre", "boulder")
-  
-  colo_tokens <- colo_tweets %>%
-    unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-    filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExcludeDend)%>% 
-    # filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"))%>% 
-    anti_join(stop_words)
-  
-  colo_dtm <- colo_tokens %>% 
-    count(document, word) %>%
-    cast_dtm(document, word, n) 
-  
-  # colo_dtm <- colo_dtm %>%  # Only required for bigger datasets
-  #   removeSparseTerms(0.9975)
-
-    return(colo_dtm) 
-}
-
 
 dtms_Denver <- lapply(stages, get_dtm, clusterID = "1")
 dtms_Boulder <- lapply(stages, get_dtm, clusterID = "2")
