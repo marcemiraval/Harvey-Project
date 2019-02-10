@@ -22,6 +22,8 @@ tidy_sandy <- sandy %>%
 
 tidy_sandy$created_at <- ymd_hms(tidy_sandy$created_at, tz ="UTC") # Setting date variable
 
+saveRDS(tidy_sandy, file = "tidy_sandy.rds")
+
 # Adding column for each most frequent word
 tidy_power <- tidy_sandy %>% 
   unnest_tokens(PowerC, text, token = "words") %>%
