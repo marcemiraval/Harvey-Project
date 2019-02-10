@@ -7,7 +7,7 @@ library(stringr)
 
 
 # Defining working directory
-setwd ("/home/marcela/Coding/MarceThesis/Chapter1/Sandy/EastCoast")
+setwd ("/home/marcela/Coding/MarcesThesis/Chapter1/Sandy/EastCoast")
 
 # Loading data into R
 sandy <- read.csv("Sandy_Subset.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
