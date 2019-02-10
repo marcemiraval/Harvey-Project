@@ -26,6 +26,8 @@ latlong2state <- function(pointsDF) {
   stateNames[indices]
 }
 
+tidy_sandy <- readRDS(file = "tidy_sandy.rds")
+
 east <- data.frame(x = tidy_sandy$x, y = tidy_sandy$y)
 tidy_sandy$state<-latlong2state(east)
 east_state<-c("maryland", "delaware", "new jersey","new york","connecticut",
