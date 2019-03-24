@@ -5,6 +5,7 @@ library(sp)
 library(maptools)
 library(dplyr)
 
+setwd("Chapter1/Sandy")
 
 latlong2state <- function(pointsDF) {
   # Prepare SpatialPolygons object with one SpatialPolygon
@@ -26,7 +27,7 @@ latlong2state <- function(pointsDF) {
   stateNames[indices]
 }
 
-tidy_sandy <- readRDS(file = "tidy_sandy.rds")
+tidy_sandy <- readRDS(file = "EastCoast/tidy_sandy.rds")
 
 east <- data.frame(x = tidy_sandy$x, y = tidy_sandy$y)
 tidy_sandy$state<-latlong2state(east)
@@ -35,7 +36,7 @@ east_state<-c("maryland", "delaware", "new jersey","new york","connecticut",
               "west virginia","ohio","pennsylvania","new hampshire")
 sandy_east=filter(tidy_sandy,state %in% east_state)
 
-east_coast<-ggplot(sandy_east, aes(x=x, y=y, color = mfw,
+ggplot(sandy_east, aes(x=x, y=y, color = "grey",
                                    frame=created_at))+
   borders("state","maryland",fill="#252525")+
   borders("state","delaware",fill="#252525")+
@@ -65,9 +66,18 @@ east_coast<-ggplot(sandy_east, aes(x=x, y=y, color = mfw,
         panel.grid.minor=element_blank(),
         plot.background=element_rect(fill="black"),
         plot.title = element_text(family="Garamond", hjust=0.5,lineheight=.8, 
-                                  colour = "white",size=16))
+                                  colour = "white",size=16)) +
+  transition_time(created_at) +
+  labs(title = "{round(frame_time, 0)}")
 
-gganimate(east_coast,ani.width=1200, ani.height=800,interval=0.2,"east coast.gif")  
+sandyEastAnim <- last_animation()
+
+anim_save("EastCoast/sandyEastAnimation", animation = last_animation())
+
+sandyEastAnim  <- anim_save()
+
+# gganimate(east_coast,ani.width=1200, ani.height=800,interval=0.2,"east coast.gif")  
+# This is not working but I will keep it to use those parameters (interval) with the new API
 
 
 
