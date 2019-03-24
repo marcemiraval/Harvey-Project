@@ -2,13 +2,15 @@ library(leaflet)
 library(tidyverse) # For ggplot. Nice plots.
 library(sf) # Spatial monster
 library(lubridate) # Play nicely with dates
+library(gganimate)
+library(htmltools)
 
 
 setwd("Chapter2")
+
+# Importing Tweets
 Harvey <- readRDS(file = "Data/HarveyGeo.rds")
-
 Harvey$date <- ymd_hms(Harvey$created, tz ="UTC")
-
 
 # Store tweets as simple features and project data
 harvey_sf <- Harvey %>% 
@@ -20,8 +22,20 @@ harvey_sf <- Harvey %>%
   mutate(lon = as.double(lon)) %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
+# Importing Spotters
+HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
 
-HarveyMap <- leaflet(harvey_sf) %>% # Interactive map to see tweets location
+harveyNWS_sf <- HarveyNWS %>% 
+  select(lat = BEGIN_LAT, 
+         lon = BEGIN_LON, 
+        # date = date, 
+         text = EPISODE_NARRATIVE) %>% 
+  # mutate(lat = as.double(lat)) %>% 
+  # mutate(lon = as.double(lon)) %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+# Interactive map to see tweets location
+HarveyMap <- leaflet(harvey_sf) %>% 
   addTiles()  %>%
   addProviderTiles(providers$CartoDB.DarkMatter) %>% 
   addCircles(weight = 3, 
@@ -30,45 +44,47 @@ HarveyMap <- leaflet(harvey_sf) %>% # Interactive map to see tweets location
              fillOpacity = 0.7)%>% 
   setView(lng = -94, lat = 40.4, zoom = 4.5)
 
+HarveyMap <- leaflet() %>% 
+  addTiles()  %>%
+  addProviderTiles(providers$CartoDB.DarkMatter) %>% 
+  addCircles(data = harveyNWS_sf, weight = 3, 
+             radius=500,
+             stroke = TRUE,
+             color = "#FF0000",
+             fillColor = "#FF0000",
+             fillOpacity = 0.7,
+             popup = ~htmlEscape(text)) %>% 
+  addCircles(data = harvey_sf, weight = 3,
+             radius=40,
+             stroke = TRUE,
+             fillColor = "#6754D8",
+             fillOpacity = 0.7,
+             popup = ~htmlEscape(tweet)) %>%
+  setView(lng = -94, lat = 40.4, zoom = 4.5)
+
 HarveyMap
+htmlwidgets::saveWidget(HarveyMap, file = "HarveyTweetsMap.html")
+
+######################### HISTOGRAM ###########################################
+
+min_datetime <- min(harvey_sf$date)
+max_datetime <- max(harvey_sf$date)
+
+ggplot(harvey_tweets_sf, aes(x = harvey_tweets_sf$date)) +
+  geom_histogram(aes(y = ..count..), binwidth = 3600, 
+                 position="identity", alpha =0.9)
 
 
-ggplot(harvey_sf, frame= date) +
-  borders("state","maryland",fill="#252525") + 
-  geom_sf() + 
-  stat_sf_coordinates()
+######################### TWEETS ANIMATION ###########################################
+data(state)
+plot(state.name == "texas")
 
-
-ggplot(sandy_east, aes(x=x, y=y, color = "grey",
-                       frame=created_at))+
-  borders("state","maryland",fill="#252525")+
-  borders("state","delaware",fill="#252525")+
-  borders("state","new jersey",fill="#252525")+
-  borders("state","new york",fill="#252525")+
-  borders("state","connecticut",fill="#252525")+
-  borders("state","massachusetts",fill="#252525")+
-  borders("state","rhode island",fill="#252525")+
-  borders("state","north carolina",fill="#252525")+
-  borders("state","virginia",fill="#252525")+
-  borders("state","west virginia",fill="#252525")+
-  borders("state","ohio",fill="#252525")+
-  borders("state","new hampshire",fill="#252525")+
-  borders("state","pennsylvania",fill="#252525")+
-  geom_point(size=0.2)+
-  coord_map("lambert", lat0=20, lat=50)+
-  theme(axis.line=element_blank(),
-        axis.text.x=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        legend.position="none",
-        panel.background=element_rect(fill="black"),
-        panel.border=element_blank(),
-        panel.grid.major=element_blank(),
-        panel.grid.minor=element_blank(),
-        plot.background=element_rect(fill="black"),
-        plot.title = element_text(family="Garamond", hjust=0.5,lineheight=.8, 
-                                  colour = "white",size=16)) +
-  transition_time(created_at) +
+ggplot(data = harvey_sf, frame = date) + 
+  #borders("state","texas",fill="#252525") +
+  geom_sf() +
+  coord_sf(crs = 4326, 
+           xlim = c(-106.645652770996, -93.5078201293945), 
+           ylim = c(25.8370609283447, 36.5007057189941)) +
+  transition_time(date) +
   labs(title = "{round(frame_time, 0)}")
+ 
