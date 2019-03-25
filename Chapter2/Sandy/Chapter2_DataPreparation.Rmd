@@ -1,0 +1,88 @@
+---
+title: "DataPreparation_Chapter2"
+author: "Marcela Suarez"
+date: "April 12, 2018"
+output: html_document
+---
+
+```{r load_packages, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+```
+
+```{r load_data_spotters, include=FALSE, echo=TRUE}
+storm2012 <- read_csv("~/Coding/Data/stormdata_2012.csv")
+```
+
+```{r load_data_Twitter, include=FALSE, echo=FALSE}
+sandyTweets <- read_csv("Data/Sandy_Clean.csv")
+```
+
+```{r load_spatial_data, include=FALSE, echo=FALSE}
+us_states <- st_read(dsn = "~/Coding/Data", layer = "tl_2017_us_state") # Read shapefile
+```
+
+
+```{r filter_spotter_sandy, include=FALSE, echo=FALSE}
+storm2012$dateTime <- mdy_hms(storm2012$BEGIN_DATE_TIME, tz = "UTC")# Format date/time
+
+states_sandySpot <- c("MARYLAND", "DELAWARE", "NEW JERSEY", "NEW YORK", "CONNECTICUT",
+                    "MASSACHUSETTS", "RHODE ISLAND", "NORTH CAROLINA", "VIRGINIA",
+                    "WEST VIRGINIA", "OHIO", "PENNSYLVANIA", "NEW HAMPSHIRE", "DISTRICT OF COLUMBIA")
+
+sandySpotIn <- storm2012 %>%
+  select(EVENT_ID, EPISODE_ID, STATE, BEGIN_LAT, BEGIN_LON, EVENT_TYPE, 
+         CZ_TIMEZONE, EPISODE_NARRATIVE, EVENT_NARRATIVE, dateTime) %>% 
+  filter(!is.na(BEGIN_LAT)) %>%
+  filter(STATE %in% states_sandySpot) %>% 
+  filter(dateTime >= "2012-10-29 00:00:00 UTC" & dateTime < "2012-11-01 00:00:00 UTC")
+```
+
+```{r filter_Twitter_sandy, include=FALSE, echo=FALSE}
+sandyTweets$created_at <- ymd_hms(sandyTweets$created_at, tz ="UTC")# Format date/time
+
+states_sandy <- c("Maryland", "Delaware", "New Jersey", "New York", "Connecticut", 
+                    "Massachusetts", "Rhode Island", "North Carolina", "Virginia", 
+                    "West Virginia", "Ohio", "Pennsylvania", "New Hampshire", "District of Columbia") # ha! had to include WDC for the map.
+
+sandyTweetsIn <- sandyTweets %>% 
+  select(lat = latitude, 
+         lon = longitude, 
+         create_time = created_at, 
+         state = c_state,
+         id = id,
+         u_id = u_id,
+         u_description = u_description,
+         tweet = text) %>% 
+  filter(state %in% states_sandy) %>%
+  filter(create_time >= "2012-10-29 00:00:00 UTC" & create_time < "2012-11-01 00:00:00 UTC")
+```
+
+```{r create_states_boundary, include=FALSE, echo=FALSE}
+sandy_states <- us_states %>% 
+  filter(NAME %in% states_sandy)
+sandy_boundary <- st_union(sandy_states) # spatial merge to create boundary
+```
+
+Set Coordinate Reference System. All information in/or transformed to use WGS84 as datum.
+
+```{r CRS_set_and_transform, include=FALSE, echo=FALSE}
+sandySpotIn_sf <- st_as_sf(sandySpotIn, coords = c("BEGIN_LON", "BEGIN_LAT"), crs = 4326) # Coords = ("x","y"). Also set WGS84 as datum. 
+sandyTweetsIn_sf <- st_as_sf(sandyTweetsIn, coords = c("lon", "lat"), crs = 4326) # Coords = ("x","y"). Also set WGS84 as datum. 
+
+st_crs(sandy_boundary) # Retrieve current coord. system: EPSG: 4269. NAD83
+st_crs(sandy_states) # Retrieve current coord. system: EPSG: 4269. NAD83
+  
+# I ended up doing the opposite. Now everything is in datum WGS84
+sandy_boundary <- sandy_boundary %>%
+  st_transform(st_crs(sandySpotIn_sf))
+st_crs(sandy_boundary)
+```
+
+```{r}
+save(sandy_boundary, file="Data/sandy_boundary.RData")
+save(sandySpotIn_sf, file="Data/sandySpotIn_sf.RData")
+save(sandyTweetsIn_sf, file="Data/sandyTweetsIn_sf.RData")
+```
+

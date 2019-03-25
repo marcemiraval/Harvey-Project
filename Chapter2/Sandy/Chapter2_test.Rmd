@@ -1,0 +1,192 @@
+---
+title: "Chapter2_test"
+author: "Marcela Suarez"
+date: "April 30, 2018"
+output: html_document
+---
+
+
+```{r load_packages, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(sf)
+library(lwgeom) #compute area polygon
+library(leaflet)
+library(htmltools)
+library(maptools)
+library(markdown)
+library(grid)
+library(gridExtra)
+library(mapview)
+library(classInt)
+library(RColorBrewer)
+library(spdep)
+```
+
+# Data Analysis
+
+```{r load_prepare_data, include=FALSE, echo=FALSE}
+load(file= "Data/sandy_boundary_sf.RData")
+load(file = "Data/sandySpotIn_sf.RData")
+load(file = "Data/sandyTweetsIn_sf.RData")
+
+#Prepare dataset to be used in function
+sandySpotIn_sf <- sandySpotIn_sf %>%
+  rename_at("EVENT_ID",~"id")  
+```
+
+
+```{r list_hexagons_possibilities_boundary_grid_proj, include=FALSE, echo=FALSE}
+projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+sandy_boundary_sf <- sandy_boundary_sf %>% 
+  st_transform_proj(projSandy)
+
+sandySpotIn_sf <- sandySpotIn_sf %>% 
+  st_transform(projSandy)
+
+sandyTweetsIn_sf <- sandyTweetsIn_sf %>% 
+  st_transform(projSandy)
+
+sandy_boundary_sp <-  as(sandy_boundary_sf, "Spatial")
+
+hexSize <- c(hs500 = 500, hs1000 = 1000, hs5000 = 5000, hs10000 = 10000, hs15000 = 15000, hs20000 = 20000, hs25000 = 25000,
+             hs30000 = 30000, hs35000 = 35000, hs40000 = 40000, hs45000 = 45000, hs50000 = 50000,
+             hs55000 = 55000, hs60000 = 60000, hs65000 = 65000, hs70000 = 70000, hs75000 = 75000)
+```
+
+
+```{r create_hexagonal_grids_sapply, include=FALSE, echo=FALSE}
+
+creaHex <- function(cellSize) {
+  sp_hex <- HexPoints2SpatialPolygons(spsample(sandy_boundary_sp,
+                                               type = "hexagonal",
+                                               cellsize = cellSize))
+  sf_hex <- st_as_sf(sp_hex) %>%
+    mutate(group = 1:nrow(.))
+  }
+
+hexagons <- lapply(hexSize, creaHex)
+
+```
+
+
+```{r join_compute_totals, include=FALSE, echo=FALSE}
+
+# Compute the number of hurricane Sandy reports (NWS and Tweets) by hexagon
+computeTotals <- function(hex_dfs, reports) {
+  hexWithReports <- st_join(hex_dfs, reports) %>%
+    group_by(group) %>%
+    summarise(total = sum(!is.na(id))) %>%
+    mutate(totRatio = total/sum(total)) # Add column that normalize totals
+}
+
+TotalsSpotters <- lapply(hexagons, computeTotals, reports = sandySpotIn_sf)
+TotalsTweets <- lapply(hexagons, computeTotals, reports = sandyTweetsIn_sf)
+```
+
+```{r sd, warning= FALSE, echo=FALSE}
+sd500 <- sd(TotalsTweets$hs500$totRatio)/mean(TotalsTweets$hs500$totRatio)*100
+sd1000 <- sd(TotalsTweets$hs1000$totRatio)/mean(TotalsTweets$hs1000$totRatio)*100
+sd5000 <- sd(TotalsTweets$hs5000$totRatio)/mean(TotalsTweets$hs5000$totRatio)*100
+sd10000 <- sd(TotalsTweets$hs10000$totRatio)/mean(TotalsTweets$hs10000$totRatio)*100
+sd15000 <- sd(TotalsTweets$hs15000$totRatio)/mean(TotalsTweets$hs15000$totRatio)*100
+sd20000 <- sd(TotalsTweets$hs20000$totRatio)/mean(TotalsTweets$hs20000$totRatio)*100
+sd25000 <- sd(TotalsTweets$hs25000$totRatio)/mean(TotalsTweets$hs25000$totRatio)*100
+sd30000 <- sd(TotalsTweets$hs30000$totRatio)/mean(TotalsTweets$hs30000$totRatio)*100
+sd35000 <- sd(TotalsTweets$hs35000$totRatio)/mean(TotalsTweets$hs35000$totRatio)*100
+sd40000 <- sd(TotalsTweets$hs40000$totRatio)/mean(TotalsTweets$hs40000$totRatio)*100
+sd45000 <- sd(TotalsTweets$hs45000$totRatio)/mean(TotalsTweets$hs45000$totRatio)*100
+sd50000 <- sd(TotalsTweets$hs50000$totRatio)/mean(TotalsTweets$hs50000$totRatio)*100
+sd55000 <- sd(TotalsTweets$hs55000$totRatio)/mean(TotalsTweets$hs55000$totRatio)*100
+sd60000 <- sd(TotalsTweets$hs60000$totRatio)/mean(TotalsTweets$hs60000$totRatio)*100
+sd65000 <- sd(TotalsTweets$hs65000$totRatio)/mean(TotalsTweets$hs65000$totRatio)*100
+sd70000 <- sd(TotalsTweets$hs70000$totRatio)/mean(TotalsTweets$hs70000$totRatio)*100
+sd75000 <- sd(TotalsTweets$hs75000$totRatio)/mean(TotalsTweets$hs75000$totRatio)*100
+
+HexSizes <- c(5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000)
+
+sd_list = c(sd5000, sd10000, sd15000, sd20000, sd25000, sd30000, 
+            sd35000, sd40000, sd45000, sd50000, sd55000, sd60000,
+            sd65000, sd70000, sd75000)
+
+sd_df <- data.frame(x = HexSizes, y = sd_list)
+```
+
+
+```{r sd_plot, warning= FALSE, echo=FALSE }
+sd_plot <- ggplot(sd_df, aes(x = HexSizes, y = sd_list)) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "sd")
+  
+sd_plot
+```
+```{r moran, warning= FALSE, echo=FALSE}
+sd5000 <- sd(TotalsTweets$hs5000$totRatio)
+
+data(oldcol)
+col.W <- nb2listw(COL.nb, style="W")
+crime <- COL.OLD$CRIME
+str(moran(crime, col.W, length(COL.nb), Szero(col.W)))
+is.na(crime) <- sample(1:length(crime), 10)
+str(moran(crime, col.W, length(COL.nb), Szero(col.W), NAOK=TRUE))
+
+moranW5000 <- nb2listw((TotalsTweets$hs5000$totRatio), style = "W")
+
+```
+
+
+```{r sd_plot_log, warning= FALSE, echo=FALSE }
+sd_plot <- ggplot(sd_df, aes(x = HexSizes, y = log(sd_list))) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "log(sd)")
+  
+sd_plot
+```
+
+```{r var, warning= FALSE, echo=FALSE}
+var5000 <- var(TotalsTweets$hs5000$totRatio)
+var10000 <- var(TotalsTweets$hs10000$totRatio)
+var15000 <- var(TotalsTweets$hs15000$totRatio)
+var20000 <- var(TotalsTweets$hs20000$totRatio)
+var25000 <- var(TotalsTweets$hs25000$totRatio)
+var30000 <- var(TotalsTweets$hs30000$totRatio)
+var35000 <- var(TotalsTweets$hs35000$totRatio)
+var40000 <- var(TotalsTweets$hs40000$totRatio)
+var45000 <- var(TotalsTweets$hs45000$totRatio)
+var50000 <- var(TotalsTweets$hs50000$totRatio)
+var55000 <- var(TotalsTweets$hs55000$totRatio)
+var60000 <- var(TotalsTweets$hs60000$totRatio)
+var65000 <- var(TotalsTweets$hs65000$totRatio)
+var70000 <- var(TotalsTweets$hs70000$totRatio)
+var75000 <- var(TotalsTweets$hs75000$totRatio)
+
+HexSizes <- c(5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000)
+
+var_list = c(var5000, var10000, var15000, var20000, var25000, var30000, 
+            var35000, var40000, var45000, var50000, var55000, var60000,
+            var65000, var70000, var75000)
+
+var_df <- data.frame(x = HexSizes, y = var_list)
+```
+
+
+```{r var_plot, warning= FALSE, echo=FALSE }
+var_plot <- ggplot(var_df, aes(x = HexSizes, y = var_list)) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "var")
+  
+var_plot
+```
+
+
+```{r var_plot_log, warning= FALSE, echo=FALSE }
+var_plot <- ggplot(var_df, aes(x = HexSizes, y = log(var_list))) +
+  geom_line() + 
+  geom_point(size = 1, color = "#dd1c77") +
+  labs(x = "Hexagons' Diameter (m)", y = "log(var)")
+  
+var_plot
+```
