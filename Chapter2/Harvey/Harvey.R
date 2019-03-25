@@ -4,13 +4,22 @@ library(sf) # Spatial monster
 library(lubridate) # Play nicely with dates
 library(gganimate)
 library(htmltools)
-
+library(USAboundaries) # To extract Texas boundary
 
 setwd("Chapter2")
+
+
+######################### IMPORTING DATA ###########################################
 
 # Importing Tweets
 Harvey <- readRDS(file = "Data/HarveyGeo.rds")
 Harvey$date <- ymd_hms(Harvey$created, tz ="UTC")
+
+# Importing Spotters
+HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
+
+
+######################### PREPARING TWITTER DATA ###########################################
 
 # Store tweets as simple features and project data
 harvey_sf <- Harvey %>% 
@@ -22,8 +31,12 @@ harvey_sf <- Harvey %>%
   mutate(lon = as.double(lon)) %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
-# Importing Spotters
-HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
+
+TX <-us_states(resolution = "high", states = "texas")
+st_crs(TX)
+TweetsHarveyTexas <- st_intersection(harvey_sf, TX) # warning is ok
+
+######################### PREPARING NWS DATA ###########################################
 
 harveyNWS_sf <- HarveyNWS %>% 
   select(lat = BEGIN_LAT, 
@@ -34,15 +47,8 @@ harveyNWS_sf <- HarveyNWS %>%
   # mutate(lon = as.double(lon)) %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
-# Interactive map to see tweets location
-HarveyMap <- leaflet(harvey_sf) %>% 
-  addTiles()  %>%
-  addProviderTiles(providers$CartoDB.DarkMatter) %>% 
-  addCircles(weight = 3, 
-             radius=40,
-             stroke = TRUE, 
-             fillOpacity = 0.7)%>% 
-  setView(lng = -94, lat = 40.4, zoom = 4.5)
+
+######################### INTERACTIVE MAP ###########################################
 
 HarveyMap <- leaflet() %>% 
   addTiles()  %>%
@@ -71,6 +77,7 @@ htmlwidgets::saveWidget(HarveyMap,
                                   basename(file_path_name))) # saveWidget does not work with relative pathnames 
 #and normalizePath does not work for paths to files that done exist yet.
 # There is another solution for that here: https://github.com/ramnathv/htmlwidgets/issues/299
+
 
 ######################### HISTOGRAM ###########################################
 
