@@ -63,7 +63,14 @@ HarveyMap <- leaflet() %>%
   setView(lng = -94, lat = 40.4, zoom = 4.5)
 
 HarveyMap
-htmlwidgets::saveWidget(HarveyMap, file = "HarveyTweetsMap.html")
+
+
+file_path_name <- "Harvey/Outputs/HarveyTweetsMap.html"
+htmlwidgets::saveWidget(HarveyMap, 
+                        file.path(normalizePath(dirname(file_path_name)), 
+                                  basename(file_path_name))) # saveWidget does not work with relative pathnames 
+#and normalizePath does not work for paths to files that done exist yet.
+# There is another solution for that here: https://github.com/ramnathv/htmlwidgets/issues/299
 
 ######################### HISTOGRAM ###########################################
 
