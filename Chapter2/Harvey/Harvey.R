@@ -13,7 +13,6 @@ setwd("Chapter2")
 
 # Importing Tweets
 Harvey <- readRDS(file = "Data/HarveyGeo.rds")
-Harvey$date <- ymd_hms(Harvey$created, tz ="UTC")
 
 # Importing Spotters
 HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
@@ -21,31 +20,79 @@ HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
 
 ######################### PREPARING TWITTER DATA ###########################################
 
-# Store tweets as simple features and project data
-harvey_sf <- Harvey %>% 
+# Filtering and formating
+harvey <- Harvey %>% 
   select(lat = latitude, 
          lon = longitude, 
-         date = date, 
+         date = created, 
          tweet = text) %>% 
   mutate(lat = as.double(lat)) %>% 
   mutate(lon = as.double(lon)) %>% 
+  mutate(date = ymd_hms(date, tz ="UTC"))
+
+# Store tweets as simple features and project data
+harvey_sf <- harvey %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
 
+# Storing datasets containing Tweets only for Texas in sf and df format
 TX <-us_states(resolution = "high", states = "texas")
 st_crs(TX)
-TweetsHarveyTexas <- st_intersection(harvey_sf, TX) # warning is ok
+TweetsHarveyTexas_sf <- st_intersection(harvey_sf, TX) # warning is ok
+
+TweetsHarveyTexas <- TweetsHarveyTexas_sf %>% 
+  st_set_geometry(NULL) %>%
+  mutate(lat = unlist(map(TweetsHarveyTexas_sf$geometry,1)),
+         long = unlist(map(TweetsHarveyTexas_sf$geometry,2)))
+
+saveRDS(TweetsHarveyTexas_sf, file = "Data/TweetsHarveyTexas_sf.rds")
+saveRDS(TweetsHarveyTexas, file = "Data/TweetsHarveyTexas.rds")
+
+
+######################### IMPORTING DATA ###########################################
+
+# Importing Tweets
+TweetsHarveyTexas_sf <- readRDS(file = "Data/TweetsHarveyTexas_sf.rds")
+TweetsHarveyTexas <- readRDS(file = "Data/TweetsHarveyTexas.rds")
 
 ######################### PREPARING NWS DATA ###########################################
 
 harveyNWS_sf <- HarveyNWS %>% 
   select(lat = BEGIN_LAT, 
          lon = BEGIN_LON, 
-        # date = date, 
+         beginDate = BEGIN_DATE_TIME, 
+         endDate = END_DATE_TIME,
          text = EPISODE_NARRATIVE) %>% 
-  # mutate(lat = as.double(lat)) %>% 
-  # mutate(lon = as.double(lon)) %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+  mutate(beginDate = ymd_hms(beginDate, tz = "UTC")) %>% 
+  mutate(endDate = ymd_hms(endDate, tz = "UTC")) %>% 
+  mutate(duration = abs(difftime(beginDate, endDate, units = "secs")))
+
+
+%>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) 
+
+
+######################### HISTOGRAM ###########################################
+
+# Histogram for all tweets
+min_datetime <- min(harvey_sf$date) 
+max_datetime <- max(harvey_sf$date)
+
+ggplot(harvey_sf, aes(x = harvey_sf$date)) +
+  geom_histogram(aes(y = ..count..), binwidth = 3600, 
+                 position="identity", alpha =0.9)
+
+# Histogram for tweets only in Texas
+min_datetime <- min(TweetsHarveyTexas$date)
+max_datetime <- max(TweetsHarveyTexas$date)
+
+ggplot(TweetsHarveyTexas, aes(x = TweetsHarveyTexas$date)) +
+  geom_histogram(aes(y = ..count..), binwidth = 3600, 
+                 position="identity", alpha =0.9)
+
+# Histogram for NWS Reports
+
+
 
 
 ######################### INTERACTIVE MAP ###########################################
@@ -79,26 +126,14 @@ htmlwidgets::saveWidget(HarveyMap,
 # There is another solution for that here: https://github.com/ramnathv/htmlwidgets/issues/299
 
 
-######################### HISTOGRAM ###########################################
-
-min_datetime <- min(harvey_sf$date)
-max_datetime <- max(harvey_sf$date)
-
-ggplot(harvey_tweets_sf, aes(x = harvey_tweets_sf$date)) +
-  geom_histogram(aes(y = ..count..), binwidth = 3600, 
-                 position="identity", alpha =0.9)
-
 
 ######################### TWEETS ANIMATION ###########################################
 data(state)
-plot(state.name == "texas")
 
-ggplot(data = harvey_sf, frame = date) + 
-  #borders("state","texas",fill="#252525") +
+ggplot(data = TweetsHarveyTexas, aes(frame = date, cumulative = TRUE)) + 
+  borders("state","texas",fill="#bdbdbd") +
   geom_sf() +
-  coord_sf(crs = 4326, 
-           xlim = c(-106.645652770996, -93.5078201293945), 
-           ylim = c(25.8370609283447, 36.5007057189941)) +
+  coord_sf(crs = 4326) +
   transition_time(date) +
   labs(title = "{round(frame_time, 0)}")
  
