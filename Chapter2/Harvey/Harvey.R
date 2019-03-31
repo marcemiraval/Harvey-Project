@@ -5,18 +5,15 @@ library(lubridate) # Play nicely with dates
 library(gganimate)
 library(htmltools)
 library(USAboundaries) # To extract Texas boundary
+library(scales) # For date_breaks function
 
 setwd("Chapter2")
 
 
-######################### IMPORTING DATA ###########################################
+######################### IMPORTING US TWITTER DATA ###########################################
 
 # Importing Tweets
 Harvey <- readRDS(file = "Data/HarveyGeo.rds")
-
-# Importing Spotters
-HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
-
 
 ######################### PREPARING TWITTER DATA ###########################################
 
@@ -30,6 +27,7 @@ harvey <- Harvey %>%
   mutate(lon = as.double(lon)) %>% 
   mutate(date = ymd_hms(date, tz ="UTC"))
 
+
 # Store tweets as simple features and project data
 harvey_sf <- harvey %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
@@ -40,10 +38,12 @@ TX <-us_states(resolution = "high", states = "texas")
 st_crs(TX)
 TweetsHarveyTexas_sf <- st_intersection(harvey_sf, TX) # warning is ok
 
+
 TweetsHarveyTexas <- TweetsHarveyTexas_sf %>% 
   st_set_geometry(NULL) %>%
-  mutate(lat = unlist(map(TweetsHarveyTexas_sf$geometry,1)),
-         long = unlist(map(TweetsHarveyTexas_sf$geometry,2)))
+  mutate(lon = unlist(map(TweetsHarveyTexas_sf$geometry,1)),
+         lat = unlist(map(TweetsHarveyTexas_sf$geometry,2)))
+
 
 saveRDS(TweetsHarveyTexas_sf, file = "Data/TweetsHarveyTexas_sf.rds")
 saveRDS(TweetsHarveyTexas, file = "Data/TweetsHarveyTexas.rds")
@@ -55,45 +55,62 @@ saveRDS(TweetsHarveyTexas, file = "Data/TweetsHarveyTexas.rds")
 TweetsHarveyTexas_sf <- readRDS(file = "Data/TweetsHarveyTexas_sf.rds")
 TweetsHarveyTexas <- readRDS(file = "Data/TweetsHarveyTexas.rds")
 
+# Importing Spotters
+HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
+
 ######################### PREPARING NWS DATA ###########################################
 
-harveyNWS_sf <- HarveyNWS %>% 
+harveyNWS <- HarveyNWS %>% 
   select(lat = BEGIN_LAT, 
          lon = BEGIN_LON, 
          beginDate = BEGIN_DATE_TIME, 
          endDate = END_DATE_TIME,
          text = EPISODE_NARRATIVE) %>% 
-  mutate(beginDate = ymd_hms(beginDate, tz = "UTC")) %>% 
-  mutate(endDate = ymd_hms(endDate, tz = "UTC")) %>% 
+  mutate(beginDate = dmy_hms(beginDate, tz = "UTC")) %>% 
+  mutate(endDate = dmy_hms(endDate, tz = "UTC")) %>% 
   mutate(duration = abs(difftime(beginDate, endDate, units = "secs")))
 
 
-%>% 
+harveyNWS_sf <- harveyNWS %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326) 
 
 
 ######################### HISTOGRAM ###########################################
 
-# Histogram for all tweets
-min_datetime <- min(harvey_sf$date) 
-max_datetime <- max(harvey_sf$date)
-
-ggplot(harvey_sf, aes(x = harvey_sf$date)) +
-  geom_histogram(aes(y = ..count..), binwidth = 3600, 
-                 position="identity", alpha =0.9)
-
-# Histogram for tweets only in Texas
+# Min and Max values for tweets only in Texas
 min_datetime <- min(TweetsHarveyTexas$date)
 max_datetime <- max(TweetsHarveyTexas$date)
 
-ggplot(TweetsHarveyTexas, aes(x = TweetsHarveyTexas$date)) +
-  geom_histogram(aes(y = ..count..), binwidth = 3600, 
-                 position="identity", alpha =0.9)
-
-# Histogram for NWS Reports
+# Min and Max values for NWS Reports
+min_datetimeNWS <- min(harveyNWS$beginDate)
+max_datetimeNWS <- max(harveyNWS$beginDate)
 
 
+## Histogram for NWS Reports and Tweets
 
+ggplot() +
+  geom_histogram(data = TweetsHarveyTexas,
+                 aes(x = TweetsHarveyTexas$date, y = ..count..), 
+                 fill = "#4d4d4d",
+                 binwidth = 10800, 
+                 position="identity", alpha =0.9) +
+  geom_histogram(data = harveyNWS, 
+                 aes(x = harveyNWS$beginDate, y = ..count..), 
+                 fill = "#41b6c4", 
+                 binwidth = 10800, 
+                 position="identity", 
+                 alpha =0.9) +
+  scale_x_datetime(name = "Date", 
+                   breaks = date_breaks("2 day"),
+                   labels = date_format("%m/%d"),
+                   limits = c(as.POSIXct(min_datetimeNWS),
+                              as.POSIXct(max_datetimeNWS))) + 
+  scale_y_continuous(name = "Count") +
+  ggtitle("") +
+  theme(legend.position = "top") +
+  guides(color = "none")
+
+ggsave("Harvey/Outputs/JointHistogram.png", width = 9, height = 5)
 
 ######################### INTERACTIVE MAP ###########################################
 
