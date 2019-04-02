@@ -49,6 +49,37 @@ saveRDS(TweetsHarveyTexas_sf, file = "Data/TweetsHarveyTexas_sf.rds")
 saveRDS(TweetsHarveyTexas, file = "Data/TweetsHarveyTexas.rds")
 
 
+######################### PREPARING ALLREPORTS DATASET ###########################################
+
+# Adding id column to spotters
+harveyNWS <- harveyNWS %>% 
+  mutate(date = beginDate) %>% 
+  mutate(id = row_number() + 4486) # Need to fix how to add this number in a better way
+
+# Adding id column to tweets
+TweetsHarveyTexas <- TweetsHarveyTexas %>% 
+  mutate(id = row_number())
+
+# Joining and cleaning the combined dataset
+allReports <- dplyr::full_join(TweetsHarveyTexas, 
+                               harveyNWS, by = "id") %>% 
+  mutate(date = ymd_hms((ifelse(is.na(date.x), 
+                                as.character(date.y), 
+                                as.character(date.x)))), tz = "UTC") %>% 
+  mutate(lon = ifelse(is.na(lon.x), lon.y, lon.x)) %>% 
+  mutate(lat = ifelse(is.na(lat.x), lat.y, lat.x)) %>% 
+  mutate(source = ifelse(is.na(tweet), "NWS", "Twitter")) %>% 
+  select(id = id,
+         lon = lon,
+         lat = lat,
+         date = date,
+         tweet = tweet,
+         text = text,
+         duration = duration,
+         source = source)
+
+saveRDS(allReports, file = "Data/allReports.rds")
+
 ######################### IMPORTING DATA ###########################################
 
 # Importing Tweets
@@ -57,6 +88,9 @@ TweetsHarveyTexas <- readRDS(file = "Data/TweetsHarveyTexas.rds")
 
 # Importing Spotters
 HarveyNWS <- readRDS(file = "Data/HarveyNWSTexas.rds")
+
+# Importing allReports dataset
+allReports <- readRDS(file = "Data/allReports.rds")
 
 ######################### PREPARING NWS DATA ###########################################
 
