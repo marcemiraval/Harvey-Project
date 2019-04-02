@@ -6,6 +6,7 @@ library(gganimate)
 library(htmltools)
 library(USAboundaries) # To extract Texas boundary
 library(scales) # For date_breaks function
+library(OpenStreetMap)
 
 setwd("Chapter2")
 
@@ -176,12 +177,24 @@ htmlwidgets::saveWidget(HarveyMap,
 
 
 ######################### TWEETS ANIMATION ###########################################
-data(state)
 
-ggplot(data = TweetsHarveyTexas_sf, aes(frame = date, cumulative = TRUE)) + 
-  borders("state","texas",fill="#bdbdbd") +
-  geom_sf() +
-  coord_sf(crs = 4326) +
-  transition_time(date) +
-  labs(title = "{round(frame_time, 0)}")
+basemap <- openmap(c(36.5007057189941,-106.645652770996),
+                   c(25.8370609283447,-93.5078201293945),
+                   minNumTiles=4) %>% # Importing OSM using Texas BB.
+  openproj(projection = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs") # Asigning CRS to basemap
+
+ani <- autoplot(basemap) +
+  geom_point(data = harveyNWS, 
+             mapping = aes(x = lon, 
+                           y = lat, 
+                           color = "red")) +
+  geom_point(data = TweetsHarveyTexas, 
+             mapping = aes(x = lon, 
+                           y = lat, 
+                           color = "blue"))+
+  labs(title = "{(current_frame)}") +
+  transition_manual(beginDate, cumulative = TRUE) +
+  exit_fade() 
+
+ani
  
