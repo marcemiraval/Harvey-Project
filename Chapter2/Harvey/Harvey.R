@@ -68,7 +68,7 @@ allReports <- dplyr::full_join(TweetsHarveyTexas,
                                 as.character(date.x)))), tz = "UTC") %>% 
   mutate(lon = ifelse(is.na(lon.x), lon.y, lon.x)) %>% 
   mutate(lat = ifelse(is.na(lat.x), lat.y, lat.x)) %>% 
-  mutate(source = ifelse(is.na(tweet), "NWS", "Twitter")) %>% 
+  mutate(source = ifelse(is.na(tweet), "Validated NWS", "Twitter")) %>% 
   select(id = id,
          lon = lon,
          lat = lat,
@@ -122,18 +122,12 @@ max_datetimeNWS <- max(harveyNWS$beginDate)
 
 ## Histogram for NWS Reports and Tweets
 
-ggplot() +
-  geom_histogram(data = TweetsHarveyTexas,
-                 aes(x = TweetsHarveyTexas$date, y = ..count..), 
-                 fill = "#4d4d4d",
+ggplot(data = allReports, 
+       aes(x = date, fill = source)) +
+  geom_histogram(aes(y = ..count..),
                  binwidth = 10800, 
-                 position="identity", alpha =0.9) +
-  geom_histogram(data = harveyNWS, 
-                 aes(x = harveyNWS$beginDate, y = ..count..), 
-                 fill = "#41b6c4", 
-                 binwidth = 10800, 
-                 position="identity", 
-                 alpha =0.9) +
+                 position="identity",
+                 alpha = .7) +
   scale_x_datetime(name = "Date", 
                    breaks = date_breaks("2 day"),
                    labels = date_format("%m/%d"),
@@ -142,7 +136,10 @@ ggplot() +
   scale_y_continuous(name = "Count") +
   ggtitle("") +
   theme(legend.position = "top") +
-  guides(color = "none")
+  scale_fill_manual(name = "", # No title in the legend
+                    values = c("Twitter" = "#4d4d4d",
+                               "Validated NWS" = "#41b6c4"),
+                    aesthetics = c("colour", "fill")) 
 
 ggsave("Harvey/Outputs/JointHistogram.png", width = 9, height = 5)
 
