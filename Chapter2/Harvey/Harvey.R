@@ -178,7 +178,7 @@ htmlwidgets::saveWidget(HarveyMap,
 ######################### TWEETS ANIMATION ###########################################
 data(state)
 
-ggplot(data = TweetsHarveyTexas, aes(frame = date, cumulative = TRUE)) + 
+ggplot(data = TweetsHarveyTexas_sf, aes(frame = date, cumulative = TRUE)) + 
   borders("state","texas",fill="#bdbdbd") +
   geom_sf() +
   coord_sf(crs = 4326) +
