@@ -126,9 +126,11 @@ max_datetimeNWS <- max(harveyNWS$beginDate)
 ggplot(data = allReports, 
        aes(x = date, fill = source)) +
   geom_histogram(aes(y = ..count..),
-                 binwidth = 10800, 
+                 binwidth = 21600,
+                 size = 0.3,
+                 colour = "#636363",
                  position="identity",
-                 alpha = .7) +
+                 alpha = .8) +
   scale_x_datetime(name = "Date", 
                    breaks = date_breaks("2 day"),
                    labels = date_format("%m/%d"),
@@ -138,11 +140,11 @@ ggplot(data = allReports,
   ggtitle("") +
   theme(legend.position = "top") +
   scale_fill_manual(name = "", # No title in the legend
-                    values = c("Twitter" = "#4d4d4d",
-                               "Validated NWS" = "#41b6c4"),
+                    values = c("Twitter" = "#af8dc3",
+                               "Validated NWS" = "#7fbf7b"),
                     aesthetics = c("colour", "fill")) 
 
-ggsave("Harvey/Outputs/JointHistogram.png", width = 9, height = 5)
+ggsave("Harvey/Outputs/JointHistogramGreenPurple.png", width = 9, height = 5)
 
 ######################### INTERACTIVE MAP ###########################################
 
@@ -180,7 +182,8 @@ htmlwidgets::saveWidget(HarveyMap,
 
 basemap <- openmap(c(36.5007057189941,-106.645652770996),
                    c(25.8370609283447,-93.5078201293945),
-                   minNumTiles=4) %>% # Importing OSM using Texas BB.
+                   type = "stamen-toner",
+                   minNumTiles=6) %>% # Importing OSM using Texas BB.
   openproj(projection = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs") # Asigning CRS to basemap
 
 ani <- autoplot(basemap) +
