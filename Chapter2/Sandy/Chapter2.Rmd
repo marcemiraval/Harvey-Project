@@ -125,8 +125,8 @@ save(TotalsTweets, file="Data/TotalsTweets.Rdata")
 ```
 
 ```{r load_totals_datasets, include=FALSE, echo=FALSE}
-load(file= "Data/sandy_boundary_sf.RData")
-load(file = "Data/sandySpotIn_sf.RData")
+load(file= "Data/TotalsSpotters.RData")
+load(file = "Data/TotalsTweets.RData")
 ```
 
 ```{r run_moran_example, include=FALSE, echo=FALSE}
@@ -173,7 +173,6 @@ moran.test(crime, nb2listw(COL.nb, style="W"), na.action=na.pass)
 ```
 
 
-
 ```{r export_shps, include=FALSE, echo=FALSE, eval = FALSE}
 # Examples exporting files as shapefiles
 st_write(hexWithSpoReports, "hexWithSpot.shp", delete_layer = TRUE) # A single file with polygons
@@ -190,7 +189,7 @@ SandyReportsMap <- leaflet(sandyTweetsIn_sf) %>%
       addCircles(weight = 3, radius=40,
                  color="#ffa500", stroke = TRUE, fillOpacity = 0.8,
                  popup = ~htmlEscape(tweet)) %>%
-      addCircles(data = sandySpot_sf, weight = 3, radius=40,
+      addCircles(data = sandySpotIn_sf, weight = 3, radius=40,
                  color="red", stroke = TRUE, fillOpacity = 0.8,
                  popup = ~htmlEscape(EVENT_NARRATIVE))%>% 
       setView(lng = -74.9, lat = 40.4, zoom = 6)
