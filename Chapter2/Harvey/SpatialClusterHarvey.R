@@ -1,3 +1,4 @@
+
 library(tidyverse) # For ggplot. Nice plots.
 library(sf) # Spatial monster
 
@@ -5,6 +6,7 @@ library(sf) # Spatial monster
 library(dbscan)
 # library(fpc) # Check if this is necessary
 library(leaflet)
+library(leaflet.esri)
 library(htmltools)
 
 
@@ -63,23 +65,33 @@ harvey_clusters <- harvey_clusters %>% # Need to reproject in WGS84 datum. long 
   st_transform(crs = 4326)
 
 harvey_clusters$cluster <- as.factor(harvey_clusters$cluster) #Clusters as factors for coloring
-pal <- colorFactor(c("#636363", "#8856a7", "#f1a340", "#c51b7d", "#80cdc1","red", "Blue"), 
+pal <- colorFactor(c("#636363", "#8856a7", "#f1a340", "#c51b7d", "#80cdc1","red", "green"), 
                    domain = c("0", "1", "2", "3", "4", "5", "6"))
 
 # #1. or Red cluster has 608 tweets. Denver
 # #2. or Blue cluster has 1998 tweets. Boulder
 # 2219/4840 tweets were classified as outliers.
 
-harveyMap <- leaflet(harvey_clusters) %>% # Interactive map to see resulting clusters
+harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
-  addProviderTiles(providers$Stamen.TonerLite) %>% 
-  addCircles(weight = 3, 
+  addProviderTiles(providers$OpenStreetMap) %>% 
+  addEsriFeatureLayer(
+    url = paste0("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/",
+                 "DR4332_TX_Observed_Flood_Extent/FeatureServer/0"),
+    useServiceSymbology = FALSE,
+    stroke = FALSE,
+    fillColor = "Blue",
+    fillOpacity = 0.3) %>% 
+  addCircles(data = harvey_clusters,
+             weight = 3, 
              radius=40,
              color= ~pal(cluster), 
              stroke = TRUE, 
-             fillOpacity = 0.2,
-             popup = ~htmlEscape(cluster))%>% 
+             fillOpacity = 1,
+             popup = ~htmlEscape(cluster)) %>% 
   setView(lng = -96.5, lat = 30, zoom = 7.1)
+
+
 
 harveyMap
 
