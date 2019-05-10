@@ -50,11 +50,13 @@ only 115 reports and the Twitter dataset contains 74807 tweets.
 
 # Data Analysis
 
-```{r load_prepare_data, include=FALSE, echo=FALSE}
-load(file= "Data/sandy_boundary_sf.RData")
+```{r load_prepare_data, include=FALSE, echo=FALSE, eval=FALSE}
+load(file = "Data/sandy_boundary_sf.RData")
 load(file = "Data/sandySpotIn_sf.RData")
 load(file = "Data/sandyTweetsIn_sf.RData")
+```
 
+```{r prepare_dataset, include=FALSE, echo=FALSE, eval=FALSE}
 #Prepare dataset to be used in function
 sandySpotIn_sf <- sandySpotIn_sf %>%
   rename_at("EVENT_ID",~"id")  
@@ -112,7 +114,7 @@ ggplot(data = sf_hex100000) + geom_sf() +
            ndiscr = 10) # xlim defined through st_bbox(sf_hex10000)
 ```
 
-```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE, eval= FALSE}
+```{r create_hexagonal_grid_points, include=FALSE, echo=FALSE}
 spSandyTweets <- as(sandyTweetsIn_sf, 'Spatial')
 sp_hexTweets <- HexPoints2SpatialPolygons(spsample(spSandyTweets,
                                                    n = 800,
@@ -121,15 +123,18 @@ sf_hexTweets <- st_as_sf(sp_hexTweets) %>%
   mutate(group = 1:nrow(.))
 ```
 
-```{r project_data_planarCS, include=FALSE, echo=FALSE, eval= FALSE}
+```{r project_data_planarCS, include=FALSE, echo=FALSE}
 # In case I need to project to a planar system. Ask this option
 # EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
 projSandy <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
 
-sandySpot_sf <- sandySpot_sf %>% 
+sandySpotIn_sf <- sandySpotIn_sf %>% 
   st_transform(projSandy)
 
 sf_hex <- sf_hex %>% 
+  st_transform(projSandy)
+
+sandyTweetsIn_sf <- sandyTweetsIn_sf %>% 
   st_transform(projSandy)
 ```
 
@@ -176,7 +181,7 @@ varr <- hexWithTweets$totRatio %>%
 # Exporting shapefiles to test classification in QGIS
 st_write(hexWithSpoReports, "Data/hexWithSpot.shp", delete_layer = TRUE)
 st_write(hexWithTweets, "Data/hexWithTweets.shp", delete_layer = TRUE)
-st_write(sandySpot_sf, "Data/sandySpotReports.shp", 
+st_write(sandySpotIn_sf, "Data/sandySpotReports.shp", 
          layer_options = "GEOMETRY=AS_XY", delete_layer = TRUE)
 ```
 
@@ -228,7 +233,7 @@ SandyHexSpotMap <- leaflet(hexWithSpoReports) %>%
             title = "# of NWS reports",
             position = "bottomright")
 
-# htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
 ```
 
 ```{r mapHexSandy_spotters_Norm, warning= FALSE, echo=FALSE, message= FALSE}
