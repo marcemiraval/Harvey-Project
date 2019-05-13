@@ -8,15 +8,13 @@ library(ggmap)
 library(lattice)
 library(ggthemes)
 library(dplyr)
+library(sf)
 
 
 # Defining working directory
 setwd ("/home/marcela/Coding/EWE-reporting/Sandy/EastCoast")
 
 # Data to create basemap
-data(tornados) 
-
-proj4string(us_states)
 
 # Filtering states affected by Sandy according to SHELDUS database in order to create AoI
 index <- us_states$STATE_NAME == "Maryland" | us_states$STATE_NAME == "Delaware"| 
@@ -26,6 +24,12 @@ index <- us_states$STATE_NAME == "Maryland" | us_states$STATE_NAME == "Delaware"
   us_states$STATE_NAME == "Virginia" | us_states$STATE_NAME ==  "West Virginia"|
   us_states$STATE_NAME == "Ohio"| us_states$STATE_NAME ==  "Pennsylvania"|
   us_states$STATE_NAME == "New Hampshire"   
+
+## Another new way to do what I did before...nicer. Just don't have time to change everything now.
+# states <- states(cb = FALSE, resolution = "500k")
+# state_sf <- st_as_sf(states)
+# texas <- state_sf %>% 
+#   filter(NAME == "Texas")
 
 # Defining area of interest --> states affected by Sandy
 AoI <- us_states[index,]
