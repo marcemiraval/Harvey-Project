@@ -1,17 +1,27 @@
 
+# LIBRARIES ---------------------------------------------------------------
+
 library(tidyverse) # For ggplot. Nice plots.
 library(sf) # Spatial monster
 
 # For spatial clustering
 library(dbscan)
-# library(fpc) # Check if this is necessary
+
+# Mapping tools
 library(leaflet)
 library(leaflet.esri)
 library(htmltools)
+library(raster)
+library(rmapshaper)
+library(tigris) # Loading tigris dataset/ Census
+library(htmlwidgets)
+library(classInt)
+library(RColorBrewer)
+library(mapview)
+library(classInt)
 
 # Defining working directory
 setwd ("Chapter2")
-
 
 # IMPORTING DATA ----------------------------------------------------------
 
@@ -54,18 +64,49 @@ TweetsHarveyTexas_sf$tweet <- str_to_lower(TweetsHarveyTexas_sf$tweet) # Convert
 
 # FLOOD EXTENT ------------------------------------------------------------
 
-FloodExtent <- st_read("Data/ObservedFloodExtent/ObservedFloodExtent.shp")
-FloodExtent <- FloodExtent %>% # Need to reproject in WGS84 datum. long lat format.
+# In flood we save the "original" or the first simplified version resulting in QGIS. Unable to use the original file for this.
+# But for the real version I just need to run simplifying steps used below with the original file 
+# downloaded from: http://www.arcgis.com/home/item.html?id=826e2679f912443d9c7853d3addd59aa
+# I can't do that now because it will take so much time I don't have.
+
+flood <- st_read("Data/FloodSimplified/femaFloodProjSimplyCheck.shp")
+
+# Here to simplify
+flood_simply <- ms_simplify(input = flood,
+                            keep = 0.025)
+
+# Saving/exporting result
+saveRDS(flood_simply, file = "Data/flood_simply.rds")
+st_write(flood_simply, "Data/flood_simply.shp")
+
+# Load simplified file
+flood_simply <- readRDS(file = "Data/flood_simply.rds")
+
+flood_simply <- flood_simply %>% # Need to reproject in WGS84 datum. long lat format.
   st_transform(crs = 4326)
 
 # Checking coordinate systems
-st_crs(FloodExtent)
+st_crs(flood_simply)
 
-bb = AOI::getBoundingBox(w) %>% st_as_sf()
+# Fixing Topology error
+checker <- st_is_valid(flood_simply)
+good <- flood_simply[!is.na(checker),]
+good = good[checker,]
 
+# Creating raster Mike's way
+# bb = AOI::getBoundingBox(fvu) %>% st_as_sf()
+# r = raster(bb)
+# tmp = fasterize::fasterize(fv, r)
+
+# Make a raster of the flood areas
+rraster <- raster()
+extent(rraster) <- extent(good)
+dim(rraster) = c(5000, 5000)
+# res(rraster) <- 5 # set cell size to 2500 metres Also I can play with this later.
+floodR <- fasterize::fasterize(good, rraster)
+saveRDS(floodR, file = "Data/floodR.rds")
 
 # SPATIAL CLUSTERING ------------------------------------------------------
-
 
 set.seed(123)
 
@@ -79,7 +120,15 @@ harvey_clusters <- TweetsHarveyTexas_sf %>%
 # Checking coordinate systems
 st_crs(harvey_clusters)
 
-## Plotting spatial cluster results
+clusteredTweets <- harvey_clusters %>% 
+  filter(cluster != 0)
+
+intersection <- st_intersection(x = FloodExtent, y = clusteredTweets)
+
+
+
+# PLOT: TWEETS SPATIAL CLUSTERS, NWS REPORTS AND FLOODED AREAS ------------
+
 harvey_clusters$cluster <- as.factor(harvey_clusters$cluster) #Clusters as factors for coloring
 pal <- colorFactor(c("#bababa", "RED", "#bf812d", "#c51b7d", "#f46d43", "#3288bd", "#762a83"), 
                    domain = c("0", "1", "2", "3", "4", "5", "6"))
@@ -92,14 +141,13 @@ pal <- colorFactor(c("#bababa", "RED", "#bf812d", "#c51b7d", "#f46d43", "#3288bd
 # #5. or Blue - San Antonio y Austin. 561 tweets.
 # #6. or Purple - Corpus Christi. 184 tweets.
 
-# a <- harvey_clusters %>% 
-#   filter(cluster == "6")
-
-#1d91c0
 
 harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
   addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addRasterImage(floodR, 
+                 col = '#4393c3',
+                 opacity = 0.5) %>% 
   addCircleMarkers(data = HarveyNWS_sf,
                    weight = 5, 
                    radius = 10,
@@ -115,14 +163,13 @@ harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
                    stroke = FALSE,
                    fill = TRUE,
                    fillOpacity = 0.5,
-                   popup = ~htmlEscape(cluster)) %>%
+                   popup = ~htmlEscape(cluster)) %>% 
   setView(lng = -96.5, lat = 31.5, zoom = 6.499999999999995)
-
-
 
 harveyMap
 
-######## 
+saveWidget(harveyMap, file = "harveyMap.html")
+
 # This is what I would need if want to read the FloodExtent feature layer from the ESRI map service
 #   addEsriFeatureLayer(
 #     url = paste0("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/",
@@ -132,9 +179,104 @@ harveyMap
 #     fillColor = "Blue",
 #     fillOpacity = 0.3)
 
-clusteredTweets <- harvey_clusters %>% 
-  filter(cluster != 0)
 
-intersection <- st_intersection(x = FloodExtent, y = clusteredTweets)
 
+# ANALYSIS IN HEXAGONS -------------------------------------------------------------------
+
+# Data to create basemap
+states <- states(cb = FALSE, resolution = "500k")
+state_sf <- st_as_sf(states)
+texas <- state_sf %>% 
+  filter(NAME == "Texas") %>% 
+  st_transform(crs = 4326)
+
+# Checking CRS
+st_crs(texas)
+
+texas_sp <-  as(texas, "Spatial")
+
+sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp, 
+                                             n=2500, 
+                                             type="hexagonal")) # Define number of hex
+
+## Not able to generate. Probably because data is not projected. Check this
+# sp_hex100000 <- HexPoints2SpatialPolygons(spsample(texas_sp, 
+#                                                    type = "hexagonal", 
+#                                                    cellsize = 100000)) # Define cellsize. 
+
+
+sf_hex <- st_as_sf(sp_hex) %>% 
+  mutate(group = 1:nrow(.))
+
+# HexagonsWithTweets
+hexWithTweets <- st_join(sf_hex, TweetsHarveyTexas_sf) %>% 
+  group_by(group) %>%
+  summarise(total = sum(!is.na(group)))%>% 
+  mutate(totRatio = total/sum(total))# Add column that normalize totals
+
+# HexagonsWithSpotters
+hexWithSpotters <- st_join(sf_hex, HarveyNWS_sf) %>% 
+  group_by(group) %>%
+  summarise(total = sum(!is.na(group))) %>% 
+  mutate(totRatio = total/sum(total))# Add column that normalize totals
+
+classes <- 6
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithSpotters$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithSpotters$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+SandyHexSpotMap <- leaflet(hexWithSpotters) %>%
+  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~total, 
+            opacity = 0.7, 
+            title = "# of NWS reports",
+            position = "bottomright")
+
+SandyHexSpotMap
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+
+
+classes <- 7
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithTweets$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithTweets$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+SandyHexTweetMap <- leaflet(hexWithTweets) %>%
+  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~totRatio, 
+            opacity = 0.7, 
+            title = "Tweets Density",
+            position = "bottomright")
+
+SandyHexTweetMap
+htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
+
+
+sync(SandyHexSpotMap, SandyHexTweetMap, harveyMap)
 
