@@ -20,6 +20,15 @@ library(RColorBrewer)
 library(mapview)
 library(classInt)
 
+# For text Mining
+library(tm) 
+library(wordcloud)
+library(tidytext)
+library(stringr) # For str_to_lower
+library(stringi)
+
+
+
 # Defining working directory
 setwd ("Chapter2")
 
@@ -46,23 +55,62 @@ allReports <- readRDS(file = "Data/allReports.rds")  ## havent used this yet
 TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf %>% # Removing retweets
   filter(!str_detect(tweet, "^RT"))
 
+TweetsHarveyTexas_sf$tweet <-  iconv(TweetsHarveyTexas_sf$tweet,
+                                     "UTF-8",
+                                     "UTF-8",
+                                     sub='')
+
 TweetsHarveyTexas_sf$tweet <- str_to_lower(TweetsHarveyTexas_sf$tweet) # Converting text to lower_case letter
 
-###   WHILE THESE TERMS ARE IDENTIFIED
-#TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs",
-#                     "i like that b", "playboy ranks")
+TweetsToExclude <- c("stay safe", "prayers", "be safe", "donations")
 
 
 # Here is to remove tweets from bots
 # grepl function doesn't take all elements in the vector.
 # So we have to paste them with an or stament like "i'm at|vegas"
+TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf[!grepl(paste(TweetsToExclude, collapse = "|"), 
+                                                    TweetsHarveyTexas_sf$tweet),] 
 
-#### FOR NOW
-#colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),] 
 
+
+
+# WORDCLOUDS --------------------------------------------------------------
+
+TweetsHarveyWords <- TweetsHarveyTexas_sf %>%
+  st_set_geometry(NULL) %>% 
+  dplyr::select(tweet) %>% 
+  rename(text = `tweet`) 
+
+ToExclude <- c("texas", "houston", "hurricane", "harvey", "austin")
+
+Harvey_tokens <- TweetsHarveyWords %>%
+  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
+  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
+  anti_join(stop_words)%>%
+  # mutate(word = wordStem(word))%>%
+  count(word, sort = TRUE) 
+
+# define color palette
+pal <- brewer.pal(8,"Dark2")
+
+# plot the 30 most common words
+Harvey_tokens %>% 
+  with(wordcloud(word, n, scale=c(4,0.5),
+                 min.freq = 7, max.words = 30,
+                 random.order = FALSE, 
+                 rot.per = FALSE, 
+                 use.r.layout = FALSE,
+                 color = brewer.pal(5, "Blues"),
+                 family = "Helvetica"))
+
+# After this I'll remove stay safe 
 
 
 # FLOOD EXTENT ------------------------------------------------------------
+
+FloodExtent <- st_read("Data/ObservedFloodExtent/ObservedFloodExtent.shp") %>% # Need to reproject in WGS84 datum. long lat format.
+  st_transform(crs = 4326)
+
 
 # In flood we save the "original" or the first simplified version resulting in QGIS. Unable to use the original file for this.
 # But for the real version I just need to run simplifying steps used below with the original file 
@@ -106,13 +154,15 @@ dim(rraster) = c(5000, 5000)
 floodR <- fasterize::fasterize(good, rraster)
 saveRDS(floodR, file = "Data/floodR.rds")
 
+floodR <- readRDS(file = "Data/floodR.rds")
+
 # SPATIAL CLUSTERING ------------------------------------------------------
 
 set.seed(123)
 
 clusters <- hdbscan(TweetsHarveyTexas_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 55)
+                    minPts = 60)
 
 harvey_clusters <- TweetsHarveyTexas_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -124,14 +174,18 @@ clusteredTweets <- harvey_clusters %>%
   filter(cluster != 0)
 
 intersection <- st_intersection(x = FloodExtent, y = clusteredTweets)
+saveRDS(intersection, file = "Data/TweetsInFlood.rds")
 
+TweetsInFlood <- readRDS(file = "Data/TweetsInFlood.rds")
 
+st_crs(FloodExtent)
+st_crs(clusteredTweets)
 
 # PLOT: TWEETS SPATIAL CLUSTERS, NWS REPORTS AND FLOODED AREAS ------------
 
 harvey_clusters$cluster <- as.factor(harvey_clusters$cluster) #Clusters as factors for coloring
-pal <- colorFactor(c("#bababa", "RED", "#bf812d", "#c51b7d", "#f46d43", "#3288bd", "#762a83"), 
-                   domain = c("0", "1", "2", "3", "4", "5", "6"))
+pal <- colorFactor(c("#bababa", "#762a83", "#bf812d", "#f46d43", "#c51b7d", "#7fbc41"), 
+                   domain = c("0", "1", "2", "3", "4", "5"))
 
 # #0. or Grey - No cluster. 187 tweets.
 # #1. or Red - Tweets sent from a single location. Needs to be removed after content analysis. 56 tweets.
@@ -145,9 +199,9 @@ pal <- colorFactor(c("#bababa", "RED", "#bf812d", "#c51b7d", "#f46d43", "#3288bd
 harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
   addProviderTiles(providers$Stamen.TonerLite) %>% 
-  addRasterImage(floodR, 
-                 col = '#4393c3',
-                 opacity = 0.5) %>% 
+  # addRasterImage(floodR, 
+  #                col = '#4393c3',
+  #                opacity = 0.5) %>% 
   addCircleMarkers(data = HarveyNWS_sf,
                    weight = 5, 
                    radius = 10,
@@ -164,7 +218,7 @@ harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
                    fill = TRUE,
                    fillOpacity = 0.5,
                    popup = ~htmlEscape(cluster)) %>% 
-  setView(lng = -96.5, lat = 31.5, zoom = 6.499999999999995)
+  setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995)
 
 harveyMap
 
@@ -179,6 +233,49 @@ saveWidget(harveyMap, file = "harveyMap.html")
 #     fillColor = "Blue",
 #     fillOpacity = 0.3)
 
+
+# CLUSTERSINCLUSTERS ------------------------------------------------------
+
+set.seed(123)
+
+clustersclusters <- hdbscan(TweetsInFlood %>%
+                      st_coordinates(), #This rounds coordinates
+                    minPts = 60)
+
+harvey_clusters_clusters <- TweetsInFlood %>% 
+  mutate(clustercluster = clustersclusters$cluster)
+
+clusteredTweets2 <- harvey_clusters_clusters %>% 
+  filter(cluster != 0)
+
+harvey_clusters_clusters$cluster <- as.factor(harvey_clusters_clusters$cluster) #Clusters as factors for coloring
+pal <- colorFactor(c("#bababa", "#762a83", "#bf812d", "#f46d43", "#c51b7d", "#7fbc41"), 
+                   domain = c("0", "1", "2", "3", "4", "5"))
+
+harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addCircleMarkers(data = HarveyNWS_sf,
+                   weight = 5, 
+                   radius = 10,
+                   stroke = FALSE,
+                   color = "#35978f",
+                   fill = TRUE,
+                   #  fillColor = "#35978f",
+                   opacity = 0.8) %>% #With fillOpacity is less transparent
+  addCircleMarkers(data = harvey_clusters_clusters,
+                   weight = 5,
+                   radius= 3,
+                   color= ~pal(cluster),
+                   stroke = FALSE,
+                   fill = TRUE,
+                   fillOpacity = 0.5,
+                   popup = ~htmlEscape(cluster)) %>% 
+  setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995)
+
+harveyMap
+
+saveWidget(harveyMap, file = "harveyMap.html")
 
 
 # ANALYSIS IN HEXAGONS -------------------------------------------------------------------
