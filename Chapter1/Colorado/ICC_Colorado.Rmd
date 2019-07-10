@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "October 12, 2018"
+date: "December 6, 2018"
 output: html_document
 ---
 
@@ -164,6 +164,33 @@ coloMap
 
 ```{r histogram, eval=FALSE, message=FALSE}
 
+
+create_histo = function(InputFile, HistoColor = NA, HistoBinWidth, HistoName, SavePath){
+  gen_hist <- ggplot(InputFile, aes(x = InputFile$date,  fill = InputFile$flood_stage)) +
+  geom_histogram(aes(y = ..count..), colour = HistoColor, binwidth = HistoBinWidth, 
+                 position="identity", alpha =0.9) +
+  scale_x_datetime(name = "Date", breaks = date_breaks("2 day"),
+                   labels = date_format("%m/%d"), expand = c(0.01,0),
+                   limits = c(
+                     as.POSIXct(min_datetime),
+                     as.POSIXct(max_datetime)
+                   )) + scale_y_continuous(name = "Count") +
+  ggtitle("") +
+  theme(axis.line = element_line(size=0.5, colour = "black"),
+        plot.title=element_text(size = 15, face = "bold"),
+        text=element_text(size = 12),
+        axis.text.x=element_text(colour="#636363", size = 10),
+        axis.text.y=element_text(colour="#636363", size = 10),
+        legend.position = c(1, 0.7), legend.justification = c(1, 0))+
+  scale_fill_manual(values = c("#2ca25f", "#d53e4f","#fc8d59", "#3288bd","#fee08b"), 
+                    limits = c("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood"),
+                    breaks = c("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood"))+
+  labs(fill="") 
+
+  ggsave(filename = HistoName, path = SavePath, plot = gen_hist, device = "png",width = 40, height = 20,
+       units = "cm")
+}
+
 ## Making sure stages are defined as categorical variables
 colo_tweets_sf$flood_stage <- as.factor(colo_tweets_sf$flood_stage)
 # levels(colo_tweets_sf$flood_stage) # Checking levels and seeing order
@@ -188,24 +215,21 @@ stages <<- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To 
 
 # Using my corpus function
 ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
-               "will","septemb", "just", "amp", "colo", "love", "can", "one", "stay", "get",
-               "safe", "see", "look", "morn", "issu", "dont", "lol", "#boulder", "im", "cu", 
-               "#coloradostrong", "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
-               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", "youre", "flood", 
-               "flooding", "floods", "flooded")
+               "will","septemb", "amp", "lol", "#boulder", "im", "#coloradostrong", 
+               "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
+               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", 
+               "youre", "flood", "flooding", "floods", "flooded", "colo", "cu", "denver", "county")
 
 
-# From here on we will be tidytexting
-
-
-create_wordcloud <- function(stage, clusterID){
+create_wordcloud <- function(stage){
   
-  # png(filename = paste("Outputs/mystages/", stage, sep = ""), width=3, height=3, units="in", res=300, bg = "transparent") 
+  #names(stage)
+  #png(filename = names(stage), width=3, height=3, units="in", res=300, bg = "transparent") 
   
-  print(stage)
-  
-  colo_tweets <- colo_clusters_wgs84 %>%
-    filter(cluster == clusterID | flood_stage == stage) %>% 
+  colo_tweets <- colo_clusters %>%
+    filter(cluster == "1" | cluster == "2") %>%
+    # filter(cluster == "1") %>%
+    filter(flood_stage == stage) %>% 
     st_set_geometry(NULL) %>% 
     select(tweet) %>% 
     rename(text = `tweet`) 
@@ -230,6 +254,8 @@ create_wordcloud <- function(stage, clusterID){
                    color = brewer.pal(5, "Blues"),
                    family = "Helvetica"))
 }
+
+lapply(stages, create_wordcloud)
 
 ```
 
