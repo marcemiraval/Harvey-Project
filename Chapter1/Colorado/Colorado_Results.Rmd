@@ -35,7 +35,8 @@ min(colorado$date) # Just for information
 colorado <- colorado %>% 
   mutate(stage = ifelse(date <= "2013-09-11 00:00:00 PDT", "preflood",
                         ifelse(date <= "2013-09-16 00:00:00 PDT", "flood",
-                               ifelse(date <= "2013-09-23 00:00:00 PDT", "immediate_aftermath", "postflood"))))
+                               ifelse(date <= "2013-09-23 00:00:00 PDT", "immediate_aftermath", "postflood")))) %>%
+    mutate(stage = factor(stage, levels = unique(stage))) # Turning stages into factors to use them for plotting later
 
 ```
 
@@ -70,8 +71,23 @@ colo_tidy <- colo_clean %>%
 colo_tidy %>% 
   count(word, sort = TRUE) # Count words
 ```
-```{r topic_modeling}
 
+```{r explore_tf_idf}
+
+colo_tf_idf <- colo_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>% 
+  group_by(stage) %>% 
+  top_n(9) %>% 
+  ungroup 
+
+colo_tf_idf %>% 
+  mutate(word = reorder(word, tf_idf)) %>% 
+  ggplot(aes(word, tf_idf, fill = stage)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~stage, scales = "free") +
+  coord_flip()
+  
 ```
 
 
