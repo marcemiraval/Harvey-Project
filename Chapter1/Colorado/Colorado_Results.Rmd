@@ -25,6 +25,19 @@ colorado <- colorado %>%
          text = t_text)
 ```
 
+##  Define temporal stages in a tidy way
+
+```{r define_temporal_stages}
+
+max(colorado$date) # Just for information
+min(colorado$date) # Just for information
+
+colorado <- colorado %>% 
+  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 PDT", "preflood",
+                        ifelse(date <= "2013-09-16 00:00:00 PDT", "flood",
+                               ifelse(date <= "2013-09-23 00:00:00 PDT", "immediate_aftermath", "postflood"))))
+
+```
 
 ## Convert this dataset so that it has one-token-per-document-per-row
 
@@ -51,10 +64,11 @@ colo_clean <- colorado %>%
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
-  filter(!word %in% stop_words$word, # Remove stopwords. But still need to look further into this
-         !word %in% str_remove_all(stop_words$word, "'"),
-         str_detect(word, "[a-z]"))
+  anti_join(stop_words) %>% # remove stopwords
+  filter(word != "boulder") # Based on what we saw at counting words in the next line. Next two candidates are Im and boulderflood. TO CHECK LATER!
 
+colo_tidy %>% 
+  count(word, sort = TRUE) # Count words
 ```
 ```{r topic_modeling}
 
