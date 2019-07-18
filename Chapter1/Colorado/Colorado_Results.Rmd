@@ -1,19 +1,15 @@
 ---
 title: "Colorado_Results"
 author: "Marcela Suárez"
-date: "July 17, 2019"
+date: "July 18, 2019"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ## Intro
 
 This document present the results obtained for Colorado:
 
-```{r Import data}
+```{r import_data, include=FALSE}
 
 library(tidyverse) 
 colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
@@ -32,20 +28,33 @@ colorado <- colorado %>%
 
 ## Convert this dataset so that it has one-token-per-document-per-row
 
-```{r one-token-per-document-per-row, echo=FALSE}
+```{r remove_retweets}
+
 library(tidytext)
 library(stringr)
 
-#remove_reg <- "[[:punct:]]"
-tidy_colo <- colorado %>% 
-  filter(!str_detect(text, "^RT")) %>%
-#  mutate(text = str_remove_all(text, remove_reg)) %>%
-  mutate(text = str_remove_all(text, "https?://[^\\s]+|&amp;|&lt;|&gt;|\bRT\\b")) %>%
-  mutate(text = str_remove_all(text, "[[:punct:]]")) %>%
-  unnest_tokens(word, text, token = "tweets") %>%
-  filter(!word %in% stop_words$word,
+colorado <- colorado %>% 
+  filter(!str_detect(text, "^RT")) # There will remain some retuits since those will be commented retweets (actually adding some info)
+```
+
+```{r clean_tweets}
+
+colo_clean <- colorado %>% 
+   mutate(text = str_remove_all(text, 'http[^ ]+'), #Finally removing urls in a nice way
+          text = str_remove_all(text, '@[^ ]+'), # Removing usernames
+          text = str_remove_all(text, "[:punct:]"), # Removing puntuation
+          text = str_remove_all(text, "[:digit:]")) # Removing numbers
+```
+
+```{r one-token-per-document-per-row, echo=FALSE}
+
+colo_tidy <- colo_clean %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  filter(!word %in% stop_words$word, # Remove stopwords. But still need to look further into this
          !word %in% str_remove_all(stop_words$word, "'"),
          str_detect(word, "[a-z]"))
+
 ```
 
 
