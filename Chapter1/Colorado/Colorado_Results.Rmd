@@ -1,0 +1,51 @@
+---
+title: "Colorado_Results"
+author: "Marcela Suárez"
+date: "July 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro
+
+This document present the results obtained for Colorado:
+
+```{r Import data}
+
+library(tidyverse) 
+colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
+
+ # Create a subset with the variables to be used
+library(lubridate) # For dates
+colorado <- colorado %>% 
+  mutate(date = ymd_hms(colorado$created_at, tz="UTC")) %>% 
+  select(lat = latitude, 
+         lon = longitude, 
+         date = date, 
+         state = c_state,
+         text = t_text)
+```
+
+
+## Convert this dataset so that it has one-token-per-document-per-row
+
+```{r one-token-per-document-per-row, echo=FALSE}
+library(tidytext)
+library(stringr)
+
+#remove_reg <- "[[:punct:]]"
+tidy_colo <- colorado %>% 
+  filter(!str_detect(text, "^RT")) %>%
+#  mutate(text = str_remove_all(text, remove_reg)) %>%
+  mutate(text = str_remove_all(text, "https?://[^\\s]+|&amp;|&lt;|&gt;|\bRT\\b")) %>%
+  mutate(text = str_remove_all(text, "[[:punct:]]")) %>%
+  unnest_tokens(word, text, token = "tweets") %>%
+  filter(!word %in% stop_words$word,
+         !word %in% str_remove_all(stop_words$word, "'"),
+         str_detect(word, "[a-z]"))
+```
+
+
