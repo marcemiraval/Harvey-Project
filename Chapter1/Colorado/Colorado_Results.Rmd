@@ -56,5 +56,8 @@ colo_tidy <- colo_clean %>%
          str_detect(word, "[a-z]"))
 
 ```
+```{r topic_modeling}
+
+```
 
 
