@@ -21,7 +21,7 @@ colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
  # Create a subset with the variables to be used
 library(lubridate) # For dates
 colorado <- colorado %>% 
-  mutate(date = ymd_hms(colorado$created_at, tz="UTC")) %>% 
+  mutate(date = ymd_hms(colorado$created_at, tz='America/Denver')) %>% # Mountain Daylight Time. Time zone in Colorado (GMT-6)
   select(lat = latitude, 
          lon = longitude, 
          date = date, 
@@ -31,7 +31,7 @@ colorado <- colorado %>%
 str(colorado) # shows the structure of the dataframe
 ```
 
-Tweets were collected from `r max(colorado$date)` to `r min(colorado$date)`  
+Tweets were collected from `r min(colorado$date)` to `r max(colorado$date)`  
 
 <br>
 
@@ -43,9 +43,9 @@ Four stages were defined:
 ```{r define_temporal_stages, echo=FALSE, message=FALSE}
 
 colorado <- colorado %>%  # The way to define them in a tidyway
-  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 PDT", "preflood",
-                        ifelse(date <= "2013-09-16 00:00:00 PDT", "flood",
-                               ifelse(date <= "2013-09-23 00:00:00 PDT", "immediate_aftermath", "postflood")))) %>%
+  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 MDT", "preflood", 
+                        ifelse(date <= "2013-09-16 00:00:00 MDT", "flood",
+                               ifelse(date <= "2013-09-23 00:00:00 MDT", "immediate_aftermath", "postflood")))) %>%
     mutate(stage = factor(stage, levels = unique(stage))) # Turning stages into factors to use them for plotting later
 ```
 
