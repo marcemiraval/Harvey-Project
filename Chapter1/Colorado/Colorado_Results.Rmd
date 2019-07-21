@@ -26,7 +26,9 @@ colorado <- colorado %>%
          lon = longitude, 
          date = date, 
          state = c_state,
-         text = t_text)
+         text = t_text,
+         user = u_name,
+         u_profile = u_description)
 
 str(colorado) # shows the structure of the dataframe
 ```
@@ -66,14 +68,18 @@ library(tidytext)
 library(stringr)
 
 colorado <- colorado %>% 
-  filter(!str_detect(text, "^RT")) # There will remain some retuits since those will be commented retweets (actually adding some info)
+  filter(!str_detect(text, "^RT"))# There will remain some retuits since those will be commented retweets (actually adding some info)
 ```
     From the original dataset containing 5915 tweets, only 5846 were retained.  
 
+* *Removing tweets sent by bots:*
+```{r remove_bots, echo=FALSE, message=FALSE}
+colorado <- colorado %>% 
+  filter(!str_detect(u_profile, "TwitZip")) 
+```
+    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. 
+    
 * *Removing urls, usernames, punctuation and numbers:*
-<br>
-All references to usernames, urls and punctuation and numbers were removed in order to prepare the dataset for tokenization.
-
 ```{r clean_tweets, echo=FALSE, message=FALSE}
 
 colo_clean <- colorado %>% 
@@ -82,8 +88,10 @@ colo_clean <- colorado %>%
           text = str_remove_all(text, "[:punct:]"), # Removing puntuation
           text = str_remove_all(text, "[:digit:]")) # Removing numbers
 ```
-
+    All references to usernames, urls and punctuation and numbers were removed in order to prepare the dataset for tokenization.
 <br>
+
+
 
 ####  **Most common words**
 
@@ -105,11 +113,12 @@ Since **boulder** is the most common word and is going ot have a big effect in o
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
+keywords <- c("boulder", "boulderflood", "coflood", "cofloodrelief")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
   anti_join(stop_words) %>%  # remove stopwords
-  filter(word != "boulder") # Next two candidates to be removed are Im and boulderflood. TO CHECK LATER!
+  filter(!word %in% keywords) # Next two candidates to be removed are Im and boulderflood. TO CHECK LATER!
 
 colo_tidy %>% 
   count(word, sort = TRUE) # Count words
