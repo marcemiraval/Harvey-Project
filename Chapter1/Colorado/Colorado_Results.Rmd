@@ -138,7 +138,8 @@ colo_tf_idf <- colo_tidy %>%
   ungroup 
 
 colo_tf_idf %>% 
-  mutate(word = reorder(word, tf_idf)) %>% 
+  mutate(word = reorder(word, tf_idf)) %>% #reordering by tf_idf
+  mutate(stage = fct_relevel(stage, "preflood", "flood", "postflood","immediate_aftermath")) %>% # reordering by stages
   ggplot(aes(word, tf_idf, fill = stage)) +
   geom_col(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~stage, scales = "free") +
@@ -146,4 +147,19 @@ colo_tf_idf %>%
   
 ```
 
+####  **Topic Modeling**
+
+```{r topic_modeling, echo=FALSE, message=FALSE}
+library(stm) #fast compared to other implementations of topic models. Base don C++
+library(quanteda)
+
+colo_dfm <- colo_tidy %>%
+  count(stage, word, sort = TRUE) %>% 
+  cast_dfm(stage, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Let's train oir topic model
+
+topic_model <- stm(colo_dfm, K = 6, init.type = "Spectral") # unsupervised 
+summary(topic_model)
+```
 
