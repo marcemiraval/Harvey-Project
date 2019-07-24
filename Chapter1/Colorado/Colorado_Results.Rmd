@@ -68,14 +68,21 @@ library(tidytext)
 library(stringr)
 
 colorado <- colorado %>% 
-  filter(!str_detect(text, "^RT"))# There will remain some retuits since those will be commented retweets (actually adding some info)
+  filter(!str_detect(text, "^RT")) %>% 
+  filter(!str_detect(text, "#TweetMyJobs")) %>% 
+  filter(!str_detect(text, "#Job")) %>% 
+  filter(!str_detect(text, "I'm")) # There will remain some retuits since those will be commented retweets (actually adding some info)
 ```
     From the original dataset containing 5915 tweets, only 5846 were retained.  
 
 * *Removing tweets sent by bots:*
 ```{r remove_bots, echo=FALSE, message=FALSE}
 colorado <- colorado %>% 
-  filter(!str_detect(u_profile, "TwitZip")) 
+  filter(!str_detect(u_profile, "TwitZip")) %>% 
+  filter(!str_detect(u_profile, "TMJ-COB PM Jobs")) %>% 
+  filter(!str_detect(u_profile, "JobsDirectUSA.com")) %>% 
+  filter(!str_detect(u_profile, "Whole Foods"))
+
 ```
     Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. 
     
@@ -113,7 +120,7 @@ Since **boulder** is the most common word and is going ot have a big effect in o
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "coflood", "cofloodrelief")
+keywords <- c("boulder", "boulderflood", "coflood", "cofloodrelief", "colorado")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -159,7 +166,20 @@ colo_dfm <- colo_tidy %>%
 
 # Let's train oir topic model
 
-topic_model <- stm(colo_dfm, K = 6, init.type = "Spectral") # unsupervised 
+topic_model <- stm(colo_dfm, K = 4, init.type = "Spectral") # unsupervised 
 summary(topic_model)
+```
+```{r}
+td_beta <- tidy(topic_model) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta %>% 
+  group_by(topic) %>% 
+  top_n(10) %>% 
+  ungroup %>% 
+  mutate(term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = topic)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() # To see which words contribute the most to each topic
 ```
 
