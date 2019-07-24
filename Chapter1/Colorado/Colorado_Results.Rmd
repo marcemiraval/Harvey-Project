@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "July 18, 2019"
+date: "July 23, 2019"
 output: html_document
 ---
 <br>
@@ -84,7 +84,7 @@ colorado <- colorado %>%
   filter(!str_detect(u_profile, "Whole Foods"))
 
 ```
-    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. 
+    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4158 tweets were retained.
     
 * *Removing urls, usernames, punctuation and numbers:*
 ```{r clean_tweets, echo=FALSE, message=FALSE}
@@ -95,7 +95,8 @@ colo_clean <- colorado %>%
           text = str_remove_all(text, "[:punct:]"), # Removing puntuation
           text = str_remove_all(text, "[:digit:]")) # Removing numbers
 ```
-    All references to usernames, urls and punctuation and numbers were removed in order to prepare the dataset for tokenization.
+    All references to usernames, urls and punctuation and numbers were removed from each tweet in order to prepare the dataset for tokenization.
+
 <br>
 
 
@@ -115,12 +116,12 @@ colo_tidy %>%
   count(word, sort = TRUE) # Count words
 ```
 
-Since **boulder** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset.
+Since **"boulder"** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset. The following five terms *("boulderflood", "colorado", "coflood", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
                                  
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "coflood", "cofloodrelief", "colorado")
+keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -133,7 +134,7 @@ colo_tidy %>%
 
 <br>
 
-tf_idf was explored in order to identify which words are important in each of the flood stages.
+The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. We explore the collection of tweets belonging to each stage.
 
 ```{r explore_tf_idf, echo=FALSE, message=FALSE}
 
@@ -154,6 +155,10 @@ colo_tf_idf %>%
   
 ```
 
+<br>
+
+
+
 ####  **Topic Modeling**
 
 ```{r topic_modeling, echo=FALSE, message=FALSE}
@@ -169,17 +174,36 @@ colo_dfm <- colo_tidy %>%
 topic_model <- stm(colo_dfm, K = 4, init.type = "Spectral") # unsupervised 
 summary(topic_model)
 ```
-```{r}
+```{r probabilities, echo=FALSE, message=FALSE}
 td_beta <- tidy(topic_model) # The beta matrix shows what are the words that contribute to each topic.
 
 td_beta %>% 
   group_by(topic) %>% 
-  top_n(10) %>% 
+  top_n(10, beta) %>% 
   ungroup %>% 
-  mutate(term = reorder(term, beta)) %>% #reordering by tf_idf
-  ggplot(aes(term, beta, fill = topic)) +
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
   geom_col(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~topic, scales = "free") +
-  coord_flip() # To see which words contribute the most to each topic
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+
+
+
+
+td_gamma <- tidy(topic_model, matrix = "gamma",                    
+                 document_names = rownames(colo_dfm))
+
+ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 2) +
+  labs(title = "Distribution of document probabilities for each topic",
+       subtitle = "Each topic is associated with 1-3 stages",
+       y = "Number of stages", x = expression(gamma))
+
 ```
 
