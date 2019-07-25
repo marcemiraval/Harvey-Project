@@ -169,6 +169,8 @@ colo_tf_idf %>%
 
 ####  **Topic Modeling**
 
+After playing with different numbers, I decided to train a topic model with 4 topics. From 5 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+
 ```{r topic_modeling, echo=FALSE, message=FALSE}
 library(stm) #fast compared to other implementations of topic models. Base don C++
 library(quanteda)
@@ -182,7 +184,10 @@ colo_dfm <- colo_tidy %>%
 topic_model <- stm(colo_dfm, K = 4, init.type = "Spectral") # unsupervised 
 summary(topic_model)
 ```
-```{r probabilities, echo=FALSE, message=FALSE}
+
+The probabilities that each word is generated from each topic are shown below:
+
+```{r beta, echo=FALSE, message=FALSE}
 td_beta <- tidy(topic_model) # The beta matrix shows what are the words that contribute to each topic.
 
 td_beta %>% 
@@ -199,10 +204,14 @@ td_beta %>%
   labs(x = NULL, y = expression(beta),
        title = "Highest word probabilities for each topic",
        subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+From this, we can demonstrate yet a clear association of these topics with the four stages of the disaster.
+
+Besides estimating each topic as a mixture of words, LDA also models each document (tweet in our case) as a mixture of topics. We can examine the per-document-per-topic probabilities, called the "gamma probability". So, looking at the probability that each document (tweet) is generated from each topic:
 
 
-
-
+```{r gamma, echo=FALSE, message=FALSE}
 td_gamma <- tidy(topic_model, matrix = "gamma",                    
                  document_names = rownames(colo_dfm))
 
@@ -212,6 +221,74 @@ ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
   labs(title = "Distribution of document probabilities for each topic",
        subtitle = "Each topic is associated with 1-3 stages",
        y = "Number of stages", x = expression(gamma))
+
+```
+
+We can see that each stage is strongly associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets).
+
+<br>
+
+
+
+####  **Spatial Clustering**
+
+Now we will seewhat happening when considering only tweets sent from spatial clusters.
+
+```{r getting_spatial, echo=FALSE, message=FALSE}
+
+library(sf)
+
+# Store tweets as simple features and project data
+colo_sf <- colorado %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% # set WGS84 as original datum
+  st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 + 
+               lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
+               units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
+
+# st_crs(colo_tweets_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
+
+```
+
+```{r spatial_clusters, echo=FALSE, message=FALSE}
+
+library(dbscan)
+library(leaflet)
+library(htmltools)
+
+
+set.seed(123)
+
+clusters <- hdbscan(colo_sf %>%
+                      st_coordinates(), #This rounds coordinates
+                    minPts = 350)
+
+colo_clusters <- colo_sf %>% 
+  mutate(cluster = clusters$cluster)
+
+## Plotting spatial cluster results
+
+colo_clusters <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat format.
+  st_transform(crs = 4326)
+
+colo_clusters$cluster <- as.factor(colo_clusters$cluster) #Clusters as factors for coloring
+pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
+
+# #1. or Red cluster has 608 tweets. Denver
+# #2. or Blue cluster has 1998 tweets. Boulder
+# 2219/4840 tweets were classified as outliers.
+
+coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(weight = 3, 
+             radius=40,
+             color= ~pal(cluster), 
+             stroke = TRUE, 
+             fillOpacity = 0.5,
+             popup = ~htmlEscape(cluster))%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+coloMap
 
 ```
 
