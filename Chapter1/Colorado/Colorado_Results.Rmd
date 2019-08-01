@@ -249,13 +249,16 @@ Before doing so, the data was first projected in North America Lambert Conformal
 library(sf)
 
 # Store tweets as simple features and project data
-colo_sf <- colo_clean %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% # set WGS84 as original datum
-  st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 + 
+colo_sf_p <- colo_clean %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+
+colo_sf <- colo_sf_p %>% # set WGS84 as original datum
+  st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 +
                lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
                units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
 
-# st_crs(colo_tweets_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
+st_crs(colo_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 ```
 
@@ -434,4 +437,193 @@ ggplot(td_gamma_clusters, aes(gamma, fill = as.factor(topic))) +
 
 ```
 
+```{r subset_by_county, echo=FALSE, message=FALSE}
+library(tigris) # Loading tigris dataset/ Census
+library(rgeos) #  rgeos required for finding out which hole belongs to which exterior ring
 
+# Data to create basemap
+counties <- counties("Colorado", cb = FALSE, resolution = "500k")
+counties_sf <- st_as_sf(counties)
+affected_counties <- counties_sf %>% 
+  filter(NAME == "Arapahoe" | NAME == "Boulder" | NAME == "Denver"|
+           NAME == "El Paso" | NAME ==  "Jefferson" | NAME ==  "Larimer" |
+           NAME == "Logan" | NAME ==  "Morgan" | NAME ==  "Weld")
+
+st_crs(affected_counties)
+
+```
+
+```{r subset_projection, echo=FALSE, message=FALSE}
+
+affected_counties_p <- st_transform(affected_counties, 4326)
+
+st_crs(affected_counties_p)
+
+
+```
+
+
+```{r point_in_polygon, echo=FALSE, message=FALSE}
+tweet_in_county <- st_join(colo_sf_p, affected_counties_p) %>% 
+  select(county_name = NAME,
+         date = date,
+         state = state,
+         text = text,
+         user = user,
+         u_profile = u_profile,
+         stage = stage,
+         geometry = geometry) %>% 
+  filter(!is.na(county_name))
+
+```
+
+```{r point_in_polygon_proj, echo=FALSE, message=FALSE}
+
+tweet_in_county_p <- tweet_in_county %>% st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 +
+               lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
+               units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
+
+st_crs(tweet_in_county_p)
+```
+
+```{r point_in_polygon_plot, echo=FALSE, message=FALSE, eval= FALSE}
+
+TweetInCounty_Map <- leaflet(tweet_in_county_p) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(tweet_in_county_p,
+             weight = 3, 
+             radius=40,
+             color= "Blue", 
+             stroke = TRUE, 
+             fillOpacity = 0.5)%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+TweetInCounty_Map
+
+```
+
+
+
+####  **Most common words (Within Spatial Clusters)**
+
+A quick view of the most common words in the whole dataset: 
+
+```{r data_subsets_tidy2, echo=FALSE, message=FALSE}
+
+#This is mainly to remove geometry to make computation faster
+
+tweet_in_county_df <- tweet_in_county_p %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  st_set_geometry(NULL)
+
+```
+
+
+```{r one-token-per-document-per-row-clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_tidy <- tweet_in_county_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words)  # remove stopwords
+  
+tweet_in_county_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+                                 
+                                 
+```{r remove_words_clusters2, echo=FALSE, message=FALSE}
+
+keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood")
+
+tweet_in_county_tidy <- tweet_in_county_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) %>%   # remove stopwords
+  filter(!word %in% keywords_clusters) 
+
+tweet_in_county_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+```{r explore_tf_idf_clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_tf_idf <- tweet_in_county_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(9) %>% 
+  ungroup 
+
+tweet_in_county_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) %>% #reordering by tf_idf
+  ggplot(aes(word, tf_idf, fill = stage)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~stage, scales = "free", ncol = 2)+
+  scale_x_reordered() +
+  coord_flip() +
+  theme(strip.text=element_text(size=11)) +
+  labs(x = NULL, y = "tf-idf",
+       title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
+       subtitle = "Words importance within tweets sent during each stage")
+
+```
+
+<br>
+
+
+
+####  **Topic Modeling**
+
+Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+
+```{r topic_modeling_clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_dfm <- tweet_in_county_tidy %>%
+  count(stage, word, sort = TRUE) %>% 
+  cast_dfm(stage, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Let's train oir topic model
+
+topic_model_tweet_in_county <- stm(tweet_in_county_dfm, K = 4, init.type = "Spectral") # unsupervised 
+summary(topic_model_tweet_in_county)
+```
+
+
+```{r beta_clusters2, echo=FALSE, message=FALSE}
+td_beta_tweet_in_county <- tidy(topic_model_tweet_in_county) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta_tweet_in_county %>% 
+  group_by(topic) %>% 
+  top_n(10, beta) %>% 
+  ungroup %>% 
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+
+```{r gamma_clusters2, echo=FALSE, message=FALSE}
+td_gamma_tweet_in_county <- tidy(topic_model_tweet_in_county, matrix = "gamma",                    
+                 document_names = rownames(tweet_in_county_dfm))
+
+ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 2) +
+  labs(title = "Distribution of document probabilities for each topic",
+       subtitle = "Each topic is associated with 1-3 stages",
+       y = "Number of stages", x = expression(gamma))
+
+```
