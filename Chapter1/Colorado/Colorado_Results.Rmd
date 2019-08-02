@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "July 25, 2019"
+date: "August 2, 2019"
 output: html_document
 ---
 <br>
@@ -74,6 +74,7 @@ library(stringr)
 colorado <- colorado %>% 
   filter(!str_detect(text, "^RT")) %>% 
   filter(!str_detect(text, "#TweetMyJobs")) %>% 
+  filter(!str_detect(text, "#GJCO")) %>% 
   filter(!str_detect(text, "#Job")) %>% 
   filter(!str_detect(text, "I'm")) # There will remain some retuits since those will be commented retweets (actually adding some info)
 ```
@@ -126,7 +127,7 @@ Since **"boulder"** is the most common word and is going ot have a big effect in
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood")
+keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood", "amp")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -179,12 +180,12 @@ library(stm) #fast compared to other implementations of topic models. Base don C
 library(quanteda)
 
 colo_dfm <- colo_tidy %>%
-  count(stage, word, sort = TRUE) %>% 
-  cast_dfm(stage, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
 # Let's train oir topic model
 
-topic_model <- stm(colo_dfm, K = 4, init.type = "Spectral") # unsupervised 
+topic_model <- stm(colo_dfm, K = 6, init.type = "Spectral") # unsupervised 
 summary(topic_model)
 ```
 
@@ -216,7 +217,12 @@ On the other hand, besides estimating each topic as a mixture of words, LDA also
 
 ```{r gamma, echo=FALSE, message=FALSE}
 td_gamma <- tidy(topic_model, matrix = "gamma",                    
-                 document_names = rownames(colo_dfm))
+                 document_names = colo_tidy$stage)
+```
+
+
+```{r gamma_plot, echo=FALSE, message=FALSE}
+
 
 ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
   geom_histogram(alpha = 0.8, show.legend = FALSE) +
@@ -229,7 +235,29 @@ ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
 
 From the plot above, we can see that each stage is strongly associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets).
 
+
+```{r gamma_heatplot, echo=FALSE, message=FALSE}
+
+library(RColorBrewer)
+ggplot(td_gamma, aes(document, topic )) +
+  geom_tile(aes(fill = gamma), , color = "white") +
+  scale_colour_brewer(palette = "Greens", name = "Gamma") +
+  ylab("Flood Stages") +
+  xlab("Topic") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Gamma")
+```
+
+
+
+
+
 <br>
+
 
 
 ## **Analysis with a subset of the data**
@@ -436,6 +464,8 @@ ggplot(td_gamma_clusters, aes(gamma, fill = as.factor(topic))) +
        y = "Number of stages", x = expression(gamma))
 
 ```
+
+
 
 ```{r subset_by_county, echo=FALSE, message=FALSE}
 library(tigris) # Loading tigris dataset/ Census
