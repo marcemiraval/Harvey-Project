@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "August 2, 2019"
+date: "July 31, 2019"
 output: html_document
 ---
 <br>
@@ -422,12 +422,12 @@ Again, after playing with different numbers, I decided to train a topic model wi
 ```{r topic_modeling_clusters, echo=FALSE, message=FALSE}
 
 clusters_dfm <- clusters_tidy %>%
-  count(stage, word, sort = TRUE) %>% 
-  cast_dfm(stage, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
 # Let's train oir topic model
 
-topic_model_clusters <- stm(clusters_dfm, K = 5, init.type = "Spectral") # unsupervised 
+topic_model_clusters <- stm(clusters_dfm, K = 9, init.type = "Spectral") # unsupervised 
 summary(topic_model_clusters)
 ```
 
@@ -567,7 +567,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters2, echo=FALSE, message=FALSE}
 
-keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood")
+keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood", "amp", "$")
 
 tweet_in_county_tidy <- tweet_in_county_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -615,12 +615,12 @@ Again, after playing with different numbers, I decided to train a topic model wi
 ```{r topic_modeling_clusters2, echo=FALSE, message=FALSE}
 
 tweet_in_county_dfm <- tweet_in_county_tidy %>%
-  count(stage, word, sort = TRUE) %>% 
-  cast_dfm(stage, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
 # Let's train oir topic model
 
-topic_model_tweet_in_county <- stm(tweet_in_county_dfm, K = 4, init.type = "Spectral") # unsupervised 
+topic_model_tweet_in_county <- stm(tweet_in_county_dfm, K = 12, init.type = "Spectral") # unsupervised 
 summary(topic_model_tweet_in_county)
 ```
 
