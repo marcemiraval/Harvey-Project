@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "August 5, 2019"
+date: "July 31, 2019"
 output: html_document
 ---
 <br>
@@ -102,6 +102,15 @@ colo_clean <- colorado %>%
           text = str_remove_all(text, "|")) 
 ```
     All references to usernames, urls and punctuation and numbers were removed from each tweet in order to prepare the dataset for tokenization.
+
+
+```{r days_asfactor, echo=FALSE, message=FALSE}
+
+colo_days <- colo_clean %>% 
+  mutate(day = as.factor(day(date)))
+
+```
+
 
 <br>
 
