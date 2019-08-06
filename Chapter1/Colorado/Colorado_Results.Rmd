@@ -86,7 +86,8 @@ colorado <- colorado %>%
   filter(!str_detect(u_profile, "TwitZip")) %>% 
   filter(!str_detect(u_profile, "TMJ-COB PM Jobs")) %>% 
   filter(!str_detect(u_profile, "JobsDirectUSA.com")) %>% 
-  filter(!str_detect(u_profile, "Whole Foods"))
+  filter(!str_detect(u_profile, "Whole Foods")) %>% 
+  filter(!str_detect(u_profile, "Superpages Colorado"))
 
 ```
     Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4158 tweets were retained.
@@ -227,6 +228,11 @@ On the other hand, besides estimating each topic as a mixture of words, LDA also
 ```{r gamma, echo=FALSE, message=FALSE}
 td_gamma <- tidy(topic_model, matrix = "gamma",                    
                  document_names = rownames(colo_dfm))
+
+heat <- td_gamma %>% 
+  rename(text = document) %>% 
+  left_join(colo_days, by = "text") %>% 
+  select(text, topic, gamma, stage, day)
 ```
 
 
@@ -245,14 +251,14 @@ x- axis values correspond to the estimated proportion of words from tweets that 
 From the plot above, we can see that more probably each tweet is associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets).
 
 
-```{r gamma_heatplot, echo=FALSE, message=FALSE, eval= FALSE}
+```{r gamma_heatplot, echo=FALSE, message=FALSE}
 
 library(RColorBrewer)
-ggplot(td_gamma, aes(document, topic )) +
-  geom_tile(aes(fill = gamma), , color = "white") +
+ggplot(heat, aes(day, topic )) +
+  geom_tile(aes(fill = gamma), color = "white") +
   scale_colour_brewer(palette = "Greens", name = "Gamma") +
-  ylab("Flood Stages") +
-  xlab("Topic") +
+  ylab("Topic") +
+  xlab("Flood day") +
   theme(legend.title = element_text(size = 10),
         legend.text = element_text(size = 12),
         plot.title = element_text(size=16),
@@ -465,6 +471,13 @@ td_beta_clusters %>%
 td_gamma_clusters <- tidy(topic_model_clusters, matrix = "gamma",                    
                  document_names = rownames(clusters_dfm))
 
+heat_clusters <- td_gamma_clusters %>% 
+  rename(text = document) %>% 
+  left_join(colo_days, by = "text") %>% 
+  select(text, topic, gamma, stage, day)
+```
+
+```{r gammaplot_clusters, echo=FALSE, message=FALSE}
 ggplot(td_gamma_clusters, aes(gamma, fill = as.factor(topic))) +
   geom_histogram(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~ topic, ncol = 2) +
@@ -474,6 +487,21 @@ ggplot(td_gamma_clusters, aes(gamma, fill = as.factor(topic))) +
 
 ```
 
+```{r gammaclusters_heatplot, echo=FALSE, message=FALSE}
+
+library(RColorBrewer)
+ggplot(heat_clusters, aes(day, topic )) +
+  geom_tile(aes(fill = gamma), color = "white") +
+  scale_colour_brewer(palette = "Greens", name = "Gamma") +
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Gamma")
+```
 
 
 ```{r subset_by_county, echo=FALSE, message=FALSE}
@@ -658,6 +686,13 @@ td_beta_tweet_in_county %>%
 td_gamma_tweet_in_county <- tidy(topic_model_tweet_in_county, matrix = "gamma",                    
                  document_names = rownames(tweet_in_county_dfm))
 
+heat_tweet_in_county <- td_gamma_tweet_in_county %>% 
+  rename(text = document) %>% 
+  left_join(colo_days, by = "text") %>% 
+  select(text, topic, gamma, stage, day)
+```
+
+```{r gammaplot_clusters2, echo=FALSE, message=FALSE}
 ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
   geom_histogram(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~ topic, ncol = 2) +
@@ -666,3 +701,45 @@ ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
        y = "Number of stages", x = expression(gamma))
 
 ```
+
+```{r}
+heat_county <- heat_tweet_in_county %>% 
+  group_by(text) %>% 
+  filter(gamma == max(gamma)) %>% 
+  ungroup()
+
+heatt <- heat_county %>% 
+  group_by(day, topic) %>% 
+  add_count() %>% 
+  rename(total_topic_day = n) %>% 
+  ungroup()
+
+heattt <- heatt %>% 
+  group_by(day) %>% 
+  add_count() %>% 
+  mutate(dens = total_topic_day/n)
+
+```
+
+
+```{r gammaclusters2_heatplot, echo=FALSE, message=FALSE}
+#Assign color variables
+col1 = "#d8e1cf" 
+col2 = "#438484"
+
+
+library(RColorBrewer)
+ggplot(heattt, aes(day, topic )) +
+  geom_tile(aes(fill = dens), color = "white") +
+  scale_fill_gradient(low = col1, high = col2) +  
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "")
+```
+
+
