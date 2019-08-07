@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "July 31, 2019"
+date: "August 7, 2019"
 output: html_document
 ---
 <br>
@@ -36,29 +36,6 @@ str(colorado) # shows the structure of the dataframe
 ```
 
 Tweets were collected from `r min(colorado$date)` to `r max(colorado$date)`  
-
-<br>
-
-
-####  **Temporal stages**
-
-Four stages were defined:
-
-```{r define_temporal_stages, echo=FALSE, message=FALSE}
-
-colorado <- colorado %>%  # The way to define them in a tidyway
-  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 MDT", "preflood", 
-                        ifelse(date <= "2013-09-16 00:00:00 MDT", "flood",
-                               ifelse(date <= "2013-09-23 00:00:00 MDT", "immediate_aftermath", "postflood")))) %>%
-  mutate(stage = factor(stage, levels = unique(stage))) %>% # Turning stages into factors to use them for plotting later
-  mutate(stage = factor(stage,levels(stage)[c(3, 4, 2, 1)])) # To plot in an specific order
-
-```
-
-* *Preflood*: From `r min(colorado$date)` to 2013-09-11 00:00:00.
-* *Flood*: From 2013-09-11 00:00:00 to 2013-09-16 00:00:00.
-* *Immediate Aftermath*: From 2013-09-16 00:00:00 to 2013-09-23 00:00:00.
-* *Postflood*: From 2013-09-23 00:00:00 to `r max(colorado$date)`.
 
 <br>
 
@@ -105,12 +82,60 @@ colo_clean <- colorado %>%
     All references to usernames, urls and punctuation and numbers were removed from each tweet in order to prepare the dataset for tokenization.
 
 
-```{r days_asfactor, echo=FALSE, message=FALSE}
 
-colo_days <- colo_clean %>% 
-  mutate(day = as.factor(day(date)))
+```{r tweets distribution, echo=FALSE, message=FALSE}
+library(scales)
+gen_hist <- ggplot(colo_clean, aes(x = colo_clean$date)) +
+  geom_histogram(aes(y = ..density..), colour = "#878787", fill = "white", binwidth = 3600) +
+  geom_density(alpha=.2, colour = "#35978f", fill="#35978f") +# Overlay with transparent density plot
+  scale_x_datetime(name = "Date", breaks = date_breaks("2 day"),
+                   labels = date_format("%m/%d"), expand = c(0.01,0),
+                   limits = c(
+                     as.POSIXct(min(colo_clean$date)),
+                     as.POSIXct(max(colo_clean$date))
+                   )) + scale_y_continuous(name = "Density") +
+  ggtitle("")   
+
+gen_hist
 
 ```
+
+
+```{r days_asfactor, echo=FALSE, message=FALSE}
+
+colo_clean <- colo_clean %>% 
+  mutate(day = as.factor(day(date)))
+
+
+sep15_count <- colo_days %>% 
+  filter(day == 15) %>% 
+  nrow()
+```
+
+Notice that there were only 5 observations on September 15 and only 131 on September 15.
+
+<br>
+
+
+####  **Temporal stages**
+
+Four stages were defined:
+
+```{r define_temporal_stages, echo=FALSE, message=FALSE}
+
+colo_clean <- colo_clean %>%  # The way to define them in a tidyway
+  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 MDT", "preflood", 
+                        ifelse(date <= "2013-09-16 00:00:00 MDT", "flood",
+                               ifelse(date <= "2013-09-23 00:00:00 MDT", "immediate_aftermath", "postflood")))) %>%
+  mutate(stage = factor(stage, levels = unique(stage))) %>% # Turning stages into factors to use them for plotting later
+  mutate(stage = factor(stage,levels(stage)[c(3, 4, 2, 1)])) # To plot in an specific order
+
+```
+
+* *Preflood*: From `r min(colorado$date)` to 2013-09-11 00:00:00.
+* *Flood*: From 2013-09-11 00:00:00 to 2013-09-16 00:00:00.
+* *Immediate Aftermath*: From 2013-09-16 00:00:00 to 2013-09-23 00:00:00.
+* *Postflood*: From 2013-09-23 00:00:00 to `r max(colorado$date)`.
 
 
 <br>
@@ -137,7 +162,8 @@ Since **"boulder"** is the most common word and is going ot have a big effect in
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood", "amp")
+#keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood", "amp")
+keywords <- c("")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -235,8 +261,7 @@ heat <- td_gamma %>%
   select(text, topic, gamma, stage, day)
 ```
 
-
-```{r gamma_plot, echo=FALSE, message=FALSE}
+```{r gamma_plot, echo=FALSE, message=FALSE, eval = FALSE}
 
 ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
   geom_histogram(alpha = 0.8, show.legend = FALSE) +
@@ -245,11 +270,11 @@ ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
        subtitle = "Each topic is associated with...",
        y = "Number of tweets", x = expression(gamma))
 
+
+# x- axis values correspond to the estimated proportion of words from tweets that are generated from each topic.
+# From the plot above, we can see that more probably each tweet is associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets). I don't think that at the end this plot is very meaningful.
+
 ```
-
-x- axis values correspond to the estimated proportion of words from tweets that are generated from each topic.
-From the plot above, we can see that more probably each tweet is associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets).
-
 
 ```{r gamma_heatplot, echo=FALSE, message=FALSE}
 
@@ -281,7 +306,7 @@ Now I will repeat the same analysis but considering tweets sent from what should
 
 <br>
 
-####  **Spatial Clustering**
+####  **Subsetting by Spatial Clustering**
 
 In order to identify tweets sent from the afected area, a hierarchical spatial clustering was applied to the data.
 
@@ -356,7 +381,7 @@ coloMap
 
 
 
-####  **Most common words (Within Spatial Clusters)**
+#####  **Most common words (Within Spatial Clusters)**
 
 A quick view of the most common words in the whole dataset: 
 
@@ -389,7 +414,9 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood")
+# keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood")
+keywords_clusters <- c("")
+
 
 clusters_tidy <- clusters_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -430,7 +457,7 @@ clusters_tf_idf %>%
 
 
 
-####  **Topic Modeling**
+#####  **Topic Modeling**
 
 Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
 
@@ -504,9 +531,17 @@ ggplot(heat_clusters, aes(day, topic )) +
 ```
 
 
+<br>
+
+####  **Subsetting by Affected Counties**
+
+
+
+
 ```{r subset_by_county, echo=FALSE, message=FALSE}
 library(tigris) # Loading tigris dataset/ Census
 library(rgeos) #  rgeos required for finding out which hole belongs to which exterior ring
+library(sf)
 
 # Data to create basemap
 counties <- counties("Colorado", cb = FALSE, resolution = "500k")
@@ -572,7 +607,7 @@ TweetInCounty_Map
 
 
 
-####  **Most common words (Within Spatial Clusters)**
+#####  **Most common words (Within Affected Counties)**
 
 A quick view of the most common words in the whole dataset: 
 
@@ -604,7 +639,8 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters2, echo=FALSE, message=FALSE}
 
-keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood", "amp", "$")
+#keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood", "amp", "$")
+keywords_clusters <- c("")
 
 tweet_in_county_tidy <- tweet_in_county_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -645,7 +681,7 @@ tweet_in_county_tf_idf %>%
 
 
 
-####  **Topic Modeling**
+#####  **Topic Modeling**
 
 Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
 
@@ -689,7 +725,7 @@ td_gamma_tweet_in_county <- tidy(topic_model_tweet_in_county, matrix = "gamma",
 heat_tweet_in_county <- td_gamma_tweet_in_county %>% 
   rename(text = document) %>% 
   left_join(colo_days, by = "text") %>% 
-  select(text, topic, gamma, stage, day)
+  select(text, topic, gamma, day)
 ```
 
 ```{r gammaplot_clusters2, echo=FALSE, message=FALSE}
