@@ -302,13 +302,7 @@ ggplot(heat, aes(day, topic )) +
 
 ## **Analysis with a subset of the data**
 
-Now I will repeat the same analysis but considering tweets sent from what should be the "affected area".
-
-<br>
-
-####  **Subsetting by Spatial Clustering**
-
-In order to identify tweets sent from the afected area, a hierarchical spatial clustering was applied to the data.
+Now I will repeat the same analysis but considering tweets sent from what should be the "affected area" (by using spatial clustering and by subseting by affected counties).
 
 Before doing so, the data was first projected in North America Lambert Conformal Conic.
 
@@ -330,7 +324,11 @@ st_crs(colo_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 ```
 
-Then, a hierarchical implementation of dbscan was used **(hdscan)**, considering a minimum of 350 tweets per cluster.
+<br>
+
+####  **Subsetting by Spatial Clustering**
+
+In order to identify tweets sent from the afected area, a hierarchical implementation of dbscan was used **(hdscan)**, considering a minimum of 350 tweets per cluster.
 
 ```{r spatial_clusters, echo=FALSE, message=FALSE}
 
@@ -360,7 +358,6 @@ pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
 # #2. or Blue cluster has 1998 tweets. Boulder
 # 2219/4840 tweets were classified as outliers.
 ```
-
 
 ```{r map_clusters, echo=FALSE, message=FALSE}
 
@@ -534,8 +531,6 @@ ggplot(heat_clusters, aes(day, topic )) +
 <br>
 
 ####  **Subsetting by Affected Counties**
-
-
 
 
 ```{r subset_by_county, echo=FALSE, message=FALSE}
@@ -739,21 +734,38 @@ ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
 ```
 
 ```{r}
+
+library(psycho)
+
+# Assigning a topic to each tweet based on which one was had the maximum Gamma
 heat_county <- heat_tweet_in_county %>% 
   group_by(text) %>% 
   filter(gamma == max(gamma)) %>% 
   ungroup()
 
-heatt <- heat_county %>% 
+# Compute the total number of tweets belonging to each topic each day
+heat_county <- heat_county %>% 
   group_by(day, topic) %>% 
   add_count() %>% 
   rename(total_topic_day = n) %>% 
   ungroup()
 
-heattt <- heatt %>% 
+# Compute the total number of tweets per day
+heat_county <- heat_county %>% 
   group_by(day) %>% 
   add_count() %>% 
-  mutate(dens = total_topic_day/n)
+  rename(total_tweets_day = n) %>% 
+  mutate(dens = total_topic_day/total_tweets_day)
+
+# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+scaled_heat_county <- 
+  heat_county %>%
+  group_by(day) %>%
+  mutate(scaled_total_topic_day = scale_this(total_topic_day))
 
 ```
 
@@ -765,8 +777,8 @@ col2 = "#438484"
 
 
 library(RColorBrewer)
-ggplot(heattt, aes(day, topic )) +
-  geom_tile(aes(fill = dens), color = "white") +
+ggplot(scaled_heat_county, aes(day, as.factor(topic))) +
+  geom_tile(aes(fill = scaled_total_topic_day), color = "white") +
   scale_fill_gradient(low = col1, high = col2) +  
   ylab("Topic") +
   xlab("Flood day") +
