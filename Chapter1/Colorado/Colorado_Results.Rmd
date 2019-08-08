@@ -107,7 +107,7 @@ colo_clean <- colo_clean %>%
   mutate(day = as.factor(day(date)))
 
 
-sep15_count <- colo_days %>% 
+sep15_count <- colo_clean %>% 
   filter(day == 15) %>% 
   nrow()
 ```
@@ -257,7 +257,7 @@ td_gamma <- tidy(topic_model, matrix = "gamma",
 
 heat <- td_gamma %>% 
   rename(text = document) %>% 
-  left_join(colo_days, by = "text") %>% 
+  left_join(colo_clean, by = "text") %>% 
   select(text, topic, gamma, stage, day)
 ```
 
@@ -393,7 +393,6 @@ clusters_df <- colo_clusters %>%
 
 ```
 
-
 ```{r one-token-per-document-per-row-clusters, echo=FALSE, message=FALSE}
 
 clusters_tidy <- clusters_df %>% 
@@ -411,8 +410,8 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-# keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood")
-keywords_clusters <- c("")
+keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood")
+#keywords_clusters <- c("")
 
 
 clusters_tidy <- clusters_df %>% 
@@ -497,7 +496,7 @@ td_gamma_clusters <- tidy(topic_model_clusters, matrix = "gamma",
 
 heat_clusters <- td_gamma_clusters %>% 
   rename(text = document) %>% 
-  left_join(colo_days, by = "text") %>% 
+  left_join(colo_clean, by = "text") %>% 
   select(text, topic, gamma, stage, day)
 ```
 
@@ -719,7 +718,7 @@ td_gamma_tweet_in_county <- tidy(topic_model_tweet_in_county, matrix = "gamma",
 
 heat_tweet_in_county <- td_gamma_tweet_in_county %>% 
   rename(text = document) %>% 
-  left_join(colo_days, by = "text") %>% 
+  left_join(colo_clean, by = "text") %>% 
   select(text, topic, gamma, day)
 ```
 
@@ -734,8 +733,6 @@ ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
 ```
 
 ```{r}
-
-library(psycho)
 
 # Assigning a topic to each tweet based on which one was had the maximum Gamma
 heat_county <- heat_tweet_in_county %>% 
