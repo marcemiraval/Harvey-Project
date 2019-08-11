@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "August 9, 2019"
+date: "August 10, 2019"
 output: html_document
 ---
 <br>
@@ -104,7 +104,8 @@ gen_hist
 ```{r days_asfactor, echo=FALSE, message=FALSE}
 
 colo_clean <- colo_clean %>% 
-  mutate(day = as.factor(day(date)))
+  mutate(day = as.factor(day(date))) %>%
+  mutate(tweet_id = row_number())
 
 
 sep15_count <- colo_clean %>% 
@@ -175,6 +176,13 @@ colo_tidy %>%
   count(word, sort = TRUE) # Count words
 ```
 
+
+```{r save_files, echo=FALSE, message=FALSE}
+saveRDS(colo_clean, file = "colo_clean.rds")
+saveRDS(colo_tidy, file = "colo_tidy.rds")
+```
+
+
 <br>
 
 The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. In this case the collection of tweets was the set of tweets belonging to each stage.
@@ -222,7 +230,7 @@ colo_dfm <- colo_tidy %>%
 
 # Let's train oir topic model
 
-topic_model <- stm(colo_dfm, K = 12, init.type = "Spectral") # unsupervised 
+topic_model <- stm(colo_dfm, K = 13, init.type = "Spectral") # unsupervised 
 summary(topic_model)
 ```
 
@@ -259,21 +267,6 @@ heat <- td_gamma %>%
   rename(text = document) %>% 
   left_join(colo_clean, by = "text") %>% 
   select(text, topic, gamma, day)
-
-```
-
-```{r gamma_plot, echo=FALSE, message=FALSE, eval = FALSE}
-
-ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
-  geom_histogram(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~ topic, ncol = 2) +
-  labs(title = "Distribution of tweet probabilities for each topic",
-       subtitle = "Each topic is associated with...",
-       y = "Number of tweets", x = expression(gamma))
-
-
-# x- axis values correspond to the estimated proportion of words from tweets that are generated from each topic.
-# From the plot above, we can see that more probably each tweet is associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets). I don't think that at the end this plot is very meaningful.
 
 ```
 
