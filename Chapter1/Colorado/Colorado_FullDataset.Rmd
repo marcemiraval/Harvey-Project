@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "August 10, 2019"
+date: "August 14, 2019"
 output: html_document
 ---
 <br>
@@ -158,13 +158,12 @@ colo_tidy %>%
   count(word, sort = TRUE) # Count words
 ```
 
-Since **"boulder"** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset. The following five terms *("boulderflood", "colorado", "coflood", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+Since **"boulder"** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset. After this process the new list of common words looks as follows:
                                  
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-#keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood", "amp")
-keywords <- c("boulder", "amp", "|")
+keywords <- c("boulder", "amp", "|", "$")
 
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
@@ -187,7 +186,7 @@ saveRDS(colo_tidy, file = "colo_tidy.rds")
 
 The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. In this case the collection of tweets was the set of tweets belonging to each stage.
 
-```{r explore_tf_idf, echo=FALSE, message=FALSE}
+```{r explore_tf_idf, echo=FALSE, message=FALSE, fig.width=9, fig.height=8}
 
 colo_tf_idf <- colo_tidy %>% 
   count(stage, word, sort = TRUE) %>% 
@@ -218,25 +217,70 @@ colo_tf_idf %>%
 
 ####  **Topic Modeling**
 
-After playing with different numbers, I decided to train a topic model with 4 topics. From 5 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
 
-```{r topic_modeling, echo=FALSE, message=FALSE, results="hide"}
+```{r create_matrix, echo=FALSE, message=FALSE}
 library(stm) #fast compared to other implementations of topic models. Base don C++
 library(quanteda)
 
+# Either one (of the following) works as input for the topic modelling
+
+# Create Document-Term Matrix
 colo_dfm <- colo_tidy %>%
   count(tweet, word, sort = TRUE) %>% 
   cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
-# Let's train oir topic model
+# Create Sparce Matrix
+colo_sparse <- colo_tidy %>%
+  count(tweet_id, word) %>%
+  cast_sparse(tweet_id, word, n)
 
-topic_model <- stm(colo_dfm, K = 13, init.type = "Spectral") # unsupervised 
-summary(topic_model)
 ```
 
-The probabilities that each word is generated from each topic are shown below:
+
+```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
+
+k_result <- readRDS(file = "k_result.rds")
+
+k_result %>%
+  transmute(K,
+            `Lower bound` = lbound,
+            Residuals = map_dbl(residual, "dispersion"),
+            `Semantic coherence` = map_dbl(semantic_coherence, mean),
+            `Held-out likelihood` = map_dbl(eval_heldout, "expected.heldout")) %>%
+  gather(Metric, Value, -K) %>%
+  ggplot(aes(K, Value, color = Metric)) +
+  geom_line(size = 1.5, alpha = 0.7, show.legend = FALSE) +
+  facet_wrap(~Metric, scales = "free_y") +
+  labs(x = "K (number of topics)",
+       y = NULL,
+       title = "Model diagnostics by number of topics",
+       subtitle = "These diagnostics indicate that a good number of topics would be around 13")
+```
+
+```{r plot_semantic_and_exclusivity, echo=FALSE, message=FALSE, fig.width=9, fig.height=6}
+
+k_result %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  filter(K %in% c(10,13,19)) %>% # This values should be the same used when creating the model in the R script
+  unnest() %>%
+  mutate(K = as.factor(K)) %>%
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity")
+
+```
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
+topic_model <- k_result %>% 
+  filter(K == 13) %>% 
+  pull(topic_model) %>% 
+  .[[1]]
+
+# topic_model
+
 td_beta <- tidy(topic_model) # The beta matrix shows what are the words that contribute to each topic.
 
 td_beta %>% 
@@ -256,25 +300,63 @@ td_beta %>%
 ```
 
 
-Besides estimating each topic as a mixture of words, LDA also models each document (tweet in our case) as a mixture of topics. We can examine the per-document-per-topic probabilities, called the "gamma probability". So, after looking at the probability that each document (tweet) is generated from each topic, we assigned to each document the topic that has the maximum probability.
+```{r gamma, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggthemes)
+library(extrafont)
 
-
-```{r gamma, echo=FALSE, message=FALSE}
 td_gamma <- tidy(topic_model, matrix = "gamma",                    
-                 document_names = rownames(colo_dfm))
+                 document_names = rownames(colo_sparse))
 
-heat <- td_gamma %>% 
-  rename(text = document) %>% 
-  left_join(colo_clean, by = "text") %>% 
-  select(text, topic, gamma, day)
+top_terms <- td_beta %>%
+  arrange(beta) %>%
+  group_by(topic) %>%
+  top_n(7, beta) %>%
+  arrange(-beta) %>%
+  select(topic, term) %>%
+  summarise(terms = list(term)) %>%
+  mutate(terms = map(terms, paste, collapse = ", ")) %>% 
+  unnest()
+
+gamma_terms <- td_gamma %>%
+  group_by(topic) %>%
+  summarise(gamma = mean(gamma)) %>%
+  arrange(desc(gamma)) %>%
+  left_join(top_terms, by = "topic") %>%
+  mutate(topic = paste0("Topic ", topic),
+         topic = reorder(topic, gamma))
+
+gamma_terms %>%
+  top_n(13, gamma) %>%
+  ggplot(aes(topic, gamma, label = terms, fill = topic, alpha = 0.7)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(hjust = 0, nudge_y = 0.0005, size = 3,
+            family = "CM Roman") +
+  coord_flip() +
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0, 0.30),
+                     labels = percent_format()) +
+  theme_tufte(base_family = "CM Roman",ticks = FALSE) +
+  theme(plot.title = element_text(size = 14,
+                                  family="CM Roman"),
+        plot.subtitle = element_text(size = 11),
+        legend.position = "none") +
+  labs(x = NULL, y = expression(gamma),
+       title = "Topics by prevalence in the dataset containing all Colorado tweets",
+       subtitle = "With the top words that contribute to each topic")
 
 ```
 
 ```{r prepare_heatmap, echo=FALSE, message=FALSE}
 
+heat <- td_gamma %>% 
+  rename(tweetid = document) %>% 
+  mutate(tweet_id = as.integer(tweetid)) %>% 
+  left_join(colo_clean, by = "tweet_id") %>% 
+  select(tweet_id, topic, gamma, day)
+
 # Assigning a topic to each tweet based on which one was had the maximum Gamma
 heat <- heat %>% 
-  group_by(text) %>% 
+  group_by(tweet_id) %>% 
   filter(gamma == max(gamma)) %>% 
   ungroup()
 
@@ -325,6 +407,5 @@ ggplot(scaled_heat, aes(day, as.factor(topic))) +
   labs(fill = "")
 ```
 
-From this, we can't demonstrate yet a clear association of these topics with the four stages of the disaster.
 
 
