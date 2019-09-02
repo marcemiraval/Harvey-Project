@@ -4,13 +4,13 @@ library(furrr)
 
 
 
-clusters_sparse <- readRDS(file = "clusters_sparse.rds")
+clusters_sparse <- readRDS(file = "Chapter1/Colorado/clusters_sparse.rds")
 
 
 
 plan(multiprocess)
 
-many_models <- data_frame(K = c(seq(2, 20, by = 1))) %>%
+many_models <- data_frame(K = c(seq(2, 30, by = 1))) %>%
   mutate(topic_model = future_map(K, ~stm(clusters_sparse, K = ., #colo_sparse
                                           verbose = FALSE)))
 
