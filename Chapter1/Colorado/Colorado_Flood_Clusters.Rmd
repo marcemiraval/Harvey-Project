@@ -369,7 +369,44 @@ ggplot(scaled_heat_clusters, aes(day, as.factor(topic))) +
   labs(fill = "")
 ```
 
+```{r combine_datasets, echo=FALSE, message=FALSE}
 
+# Combine datasets to get tweets and location
+
+tweet_and_topic <- dplyr::left_join(heat_clusters, colo_clean, by = "tweet_id") %>% 
+  select(tweet_id = tweet_id,
+         topic = topic,
+         lat = lat,
+         lon = lon,
+         date = date,
+         text = text,
+         user = user,
+         u_profile = u_profile)
+
+```
+
+```{r}
+library(colorspace)
+tweet_and_topic_geo <- tweet_and_topic %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+tweet_and_topic_geo$topic <- as.factor(tweet_and_topic_geo$topic) #Clusters as factors for coloring
+pal <- rev(colorspace::diverge_hcl(14))
+
+
+TopicMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(weight = 3, 
+             radius=40,
+             color= ~pal(topic), 
+             stroke = TRUE, 
+             fillOpacity = 0.5,
+             popup = ~htmlEscape(topic))%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+TopicMap
+```
 
 
 
