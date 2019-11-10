@@ -1,7 +1,7 @@
 ---
 title: "Flood Phase in Counties"
 author: "Marcela"
-date: "11/09/2019"
+date: "11/10/2019"
 output: html_document
 ---
 
@@ -9,6 +9,7 @@ output: html_document
 
 ####  **Subsetting by Affected Counties and Flood Phase**
 
+**4086 tweets** sent during the disaster were filtered based on the 9 counties affected in the disaster --according to the reports: Arapahoe, Boulder, Denver, El Paso, Jefferson, Larimer, Logan, Morgan and Weld.
 
 ```{r subset_by_county, echo=FALSE, message=FALSE}
 library(sf)
@@ -63,6 +64,8 @@ flood_county_tweet <- st_join(colo_sf_p, affected_counties_p) %>%
 
 ```
 
+From the **2804 tweets** resulting from this process, only **849** tweets sent during the "Flood" stage were filtered for content analysis.
+
 ```{r create_map, echo=FALSE, message=FALSE, fig.width=9, fig.height=9}
 library(mapview)
 
@@ -102,7 +105,7 @@ flood_county_tweet_tidy %>%
 ```
 
 
-Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following five terms *("boulderflood", "coflood", "cowx", "amp", "|")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
                                  
                                  
 ```{r remove_words_clusters2, echo=FALSE, message=FALSE}
@@ -191,7 +194,7 @@ k_result_flood_county %>%
   labs(x = "K (number of topics)",
        y = NULL,
        title = "Model diagnostics by number of topics",
-       subtitle = "These diagnostics indicate that a good number of topics would be around 13")
+       subtitle = "These diagnostics indicate that a good number of topics would be around 14")
 ```
 
 
