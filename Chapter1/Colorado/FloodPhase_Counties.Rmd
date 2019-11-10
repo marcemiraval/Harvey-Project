@@ -1,7 +1,7 @@
 ---
 title: "Flood Phase in Counties"
 author: "Marcela"
-date: "11/07/2019"
+date: "11/09/2019"
 output: html_document
 ---
 
@@ -107,7 +107,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters2, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "amp", "|")
+keywords <- c("boulder", "amp", "|", "boulderflood", "cowx", "coflood")
 
 flood_county_tweet_tidy <- flood_county_tweet_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -199,7 +199,7 @@ k_result_flood_county %>%
 
 k_result_flood_county %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(4, 8, 12)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(4, 9, 14)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -214,7 +214,7 @@ k_result_flood_county %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=13}
 topic_model_flood_county <- k_result_flood_county %>% 
-  filter(K == 12) %>% 
+  filter(K == 14) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -348,7 +348,7 @@ ggplot(scaled_heat_flood_county, aes(day, as.factor(topic))) +
 ```
 
 
-```{r}
+```{r joinTweetsTopics, echo=FALSE, message=FALSE}
 
 tweet_and_topic <- dplyr::left_join(heat_flood_county, colo_clean, by = "tweet_id") %>% 
   select(tweet_id = tweet_id,
@@ -365,12 +365,13 @@ tweet_and_topic <- dplyr::left_join(heat_flood_county, colo_clean, by = "tweet_i
 tweet_and_topic$topic <- factor(tweet_and_topic$topic)
 ```
 
-```{r}
+```{r geoconversion, echo=FALSE, message=FALSE}
 tweet_and_topic_geo <- tweet_and_topic %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% 
+  filter(topic == "Topic 4" | topic == "Topic 2")
 ```
 
-```{r}
+```{r topicMap, echo=FALSE, message=FALSE}
 library(colorspace)
 library(RColorBrewer)
 library(leaflet)
@@ -387,7 +388,7 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
              color= markerCol(tweet_and_topic_geo$topic), 
              stroke = TRUE, 
              fillOpacity = 0.5,
-             popup = ~htmlEscape(tweet_and_topic_geo$topic))%>% 
+             popup = ~htmlEscape(tweet_and_topic_geo$text))%>% 
   setView(lng = -105, lat = 40, zoom = 8.5)
 
 TopicalMap
