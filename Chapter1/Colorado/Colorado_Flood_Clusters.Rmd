@@ -1,7 +1,7 @@
 ---
 title: "Colorado_Flood_Clusters"
 author: "Marcela"
-date: "8/20/2019"
+date: "11/11/2019"
 output: html_document
 ---
 
@@ -128,7 +128,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt")
+keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood")
 
 
 clusters_tidy <- clusters_df %>% 
@@ -181,19 +181,28 @@ Again, after playing with different numbers, I decided to train a topic model wi
 library(stm) #fast compared to other implementations of topic models. Base don C++
 library(quanteda)
 
+
+# Filtering only columns needed
+clusters_super_tidy <- clusters_tidy %>% 
+  select(day,
+         tweet_id,
+         tweet,
+         word)
+
 # Either one (of the following) works as input for the topic modelling
 
 # Create Document-Term Matrix
-clusters_dfm <- clusters_tidy %>%
+clusters_dfm <- clusters_super_tidy %>%
   count(tweet, word, sort = TRUE) %>% 
   cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
 # Create Sparce Matrix
-clusters_sparse <- clusters_tidy %>%
+clusters_sparse <- clusters_super_tidy %>%
   count(tweet_id, word) %>%
   cast_sparse(tweet_id, word, n)
 
 saveRDS(clusters_sparse, file = "clusters_flood_sparse.rds")
+saveRDS(clusters_dfm, file = "clusters_flood_dfm.rds")
 
 ```
 
@@ -222,7 +231,7 @@ k_result_flood_cluster %>%
 
 k_result_flood_cluster %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(14,20,28)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(4,13,17)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -236,7 +245,7 @@ k_result_flood_cluster %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
 topic_model <- k_result_flood_cluster %>% 
-  filter(K == 14) %>% 
+  filter(K == 13) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -272,7 +281,7 @@ td_gamma_clusters <- tidy(topic_model, matrix = "gamma",
 top_terms_clusters <- td_beta_clusters %>%
   arrange(beta) %>%
   group_by(topic) %>%
-  top_n(7, beta) %>%
+  top_n(10, beta) %>%
   arrange(-beta) %>%
   select(topic, term) %>%
   summarise(terms = list(term)) %>%
@@ -370,35 +379,53 @@ ggplot(scaled_heat_clusters, aes(day, as.factor(topic))) +
 ```
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ```{r combine_datasets, echo=FALSE, message=FALSE}
 
 # Combine datasets to get tweets and location
 =======
 ```{r}
 >>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
+
+
+```{r joinTweetsTopics, echo=FALSE, message=FALSE}
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
 
 tweet_and_topic <- dplyr::left_join(heat_clusters, colo_clean, by = "tweet_id") %>% 
   select(tweet_id = tweet_id,
          topic = topic,
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+         text, text,
+         user = user,
+         u_profile = u_profile,
+         date = date,
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
          lat = lat,
          lon = lon,
-         date = date,
-         text = text,
-         user = user,
-         u_profile = u_profile)
+         day = day.x) %>% 
+  mutate(topic = paste0("Topic ", topic))
 
+tweet_and_topic$topic <- factor(tweet_and_topic$topic)
 ```
 
-```{r}
-library(colorspace)
+```{r geoconversion, echo=FALSE, message=FALSE}
 tweet_and_topic_geo <- tweet_and_topic %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) 
+```
 
-tweet_and_topic_geo$topic <- as.factor(tweet_and_topic_geo$topic) #Clusters as factors for coloring
-pal <- rev(colorspace::diverge_hcl(14))
+```{r topicMap, echo=FALSE, message=FALSE}
+library(colorspace)
+library(RColorBrewer)
+library(leaflet)
+library(htmltools)
 
 
+markerCol <- colorFactor(palette = brewer.pal(12, "Paired"), tweet_and_topic_geo$topic)
+
+<<<<<<< HEAD
 TopicMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
 =======
          text, text,
@@ -422,17 +449,25 @@ markerCol <- colorFactor(palette = (diverge_hsv(14)), tweet_and_topic_geo$topic)
 
 TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
 >>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
+TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
   addTiles()  %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addCircles(weight = 3, 
              radius=40,
 <<<<<<< HEAD
+<<<<<<< HEAD
              color= ~pal(topic), 
+=======
+             color= markerCol(tweet_and_topic_geo$topic), 
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
              stroke = TRUE, 
              fillOpacity = 0.5,
-             popup = ~htmlEscape(topic))%>% 
+             popup = ~htmlEscape(tweet_and_topic_geo$text))%>% 
   setView(lng = -105, lat = 40, zoom = 8.5)
 
+<<<<<<< HEAD
 TopicMap
 =======
              color= markerCol(tweet_and_topic_geo$topic), 
@@ -446,6 +481,12 @@ TopicalMap
 htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodCluster.html")
 
 >>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
+TopicalMap
+
+htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodClusters.html")
+
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
 ```
 
 
