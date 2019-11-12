@@ -369,13 +369,18 @@ ggplot(scaled_heat_clusters, aes(day, as.factor(topic))) +
   labs(fill = "")
 ```
 
+<<<<<<< HEAD
 ```{r combine_datasets, echo=FALSE, message=FALSE}
 
 # Combine datasets to get tweets and location
+=======
+```{r}
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
 
 tweet_and_topic <- dplyr::left_join(heat_clusters, colo_clean, by = "tweet_id") %>% 
   select(tweet_id = tweet_id,
          topic = topic,
+<<<<<<< HEAD
          lat = lat,
          lon = lon,
          date = date,
@@ -395,10 +400,33 @@ pal <- rev(colorspace::diverge_hcl(14))
 
 
 TopicMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+=======
+         text, text,
+         user = user,
+         u_profile = u_profile,
+         date = date,
+         lat = lat,
+         lon = lon,
+         day = day.x)
+```
+
+```{r}
+tweet_and_topic_geo <- tweet_and_topic %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+```
+
+```{r}
+library(colorspace)
+
+markerCol <- colorFactor(palette = (diverge_hsv(14)), tweet_and_topic_geo$topic)
+
+TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
   addTiles()  %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addCircles(weight = 3, 
              radius=40,
+<<<<<<< HEAD
              color= ~pal(topic), 
              stroke = TRUE, 
              fillOpacity = 0.5,
@@ -406,7 +434,23 @@ TopicMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting 
   setView(lng = -105, lat = 40, zoom = 8.5)
 
 TopicMap
+=======
+             color= markerCol(tweet_and_topic_geo$topic), 
+             stroke = TRUE, 
+             fillOpacity = 0.5,
+             popup = ~htmlEscape(tweet_and_topic_geo$text))%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+TopicalMap
+
+htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodCluster.html")
+
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
 ```
 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
