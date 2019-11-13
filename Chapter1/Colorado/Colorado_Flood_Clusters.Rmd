@@ -7,6 +7,12 @@ output: html_document
 
 
 <br>
+
+
+####  **Subsetting by Affected Counties and Flood Phase**
+
+**4086 tweets** sent during the disaster were filtered based on spatial clusters
+
 ```{r import_data, echo=FALSE, message=FALSE}
 colo_clean <- readRDS(file = "colo_clean.rds")
 ```
@@ -42,7 +48,7 @@ st_crs(colo_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 ####  **Subsetting by Spatial Clustering**
 
-In order to identify tweets sent from the afected area, a hierarchical implementation of dbscan was used **(hdscan)**, considering a minimum of 350 tweets per cluster.
+In order to identify tweets sent from the afected area, a hierarchical implementation of dbscan was used **(hdscan)**, considering a minimum of 315 tweets per cluster.
 
 ```{r spatial_clusters, echo=FALSE, message=FALSE}
 
@@ -56,7 +62,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 550)
+                    minPts = 315)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
