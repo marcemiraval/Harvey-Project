@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "August 14, 2019"
+date: "November 12, 2019"
 output: html_document
 ---
 <br>
@@ -55,7 +55,7 @@ colorado <- colorado %>%
   filter(!str_detect(text, "#Job")) %>% 
   filter(!str_detect(text, "I'm")) # There will remain some retuits since those will be commented retweets (actually adding some info)
 ```
-    From the original dataset containing 5915 tweets, only 5846 were retained.  
+    From the original dataset containing 5915 tweets, only 4837 were retained.  
 
 * *Removing tweets sent by bots:*
 ```{r remove_bots, echo=FALSE, message=FALSE}
@@ -67,7 +67,7 @@ colorado <- colorado %>%
   filter(!str_detect(u_profile, "Superpages Colorado"))
 
 ```
-    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4158 tweets were retained.
+    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4086 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4086 tweets were retained.
     
 * *Removing urls, usernames, punctuation and numbers:*
 ```{r clean_tweets, echo=FALSE, message=FALSE}
@@ -114,6 +114,20 @@ sep15_count <- colo_clean %>%
 ```
 
 Note: There were only 5 observations on September 15 and only 131 on September 16.
+
+In this stage almost **6%** of the tweets were excluded. 228 tweets from the 4086 total tweets.
+
+```{r remove_topuser, echo=FALSE, message=FALSE}
+
+user_frequency <- colo_clean %>%
+        group_by(user) %>%
+        count()
+
+colo_clean <- colo_clean %>% 
+  filter(user != "Denver CP")
+```
+
+
 
 <br>
 
@@ -163,7 +177,7 @@ Since **"boulder"** is the most common word and is going ot have a big effect in
                                  
 ```{r remove_words, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "amp", "|", "$")
+keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood", "colorado")
 
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
@@ -261,7 +275,7 @@ k_result %>%
 
 k_result %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(10,13,19)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(11,13,17)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
