@@ -152,6 +152,17 @@ colo_clean <- colo_clean %>%  # The way to define them in a tidyway
 * *Immediate Aftermath*: From 2013-09-16 00:00:00 to 2013-09-23 00:00:00.
 * *Postflood*: From 2013-09-23 00:00:00 to `r max(colorado$date)`.
 
+Total number of tweets by stage:
+
+```{r tweets_by_stage, echo=FALSE, message=FALSE}
+frequency_by_stage <- colo_clean %>%
+        group_by(stage) %>%
+        count()
+
+knitr::kable(frequency_by_stage, format="html")
+
+```
+
 
 <br>
 
