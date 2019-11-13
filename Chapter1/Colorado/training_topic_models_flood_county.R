@@ -3,7 +3,7 @@ library(furrr)
 
 
 
-flood_county_tweet_sparse <- readRDS(file = "R:/Users/amsuarez/Colorado/flood_county_tweet_sparse.rds")
+flood_county_tweet_sparse <- readRDS(file = "Chapter1/Colorado/flood_county_tweet_sparse.rds")
 
 
 
@@ -25,4 +25,5 @@ k_result_flood_county <- many_models %>%
          lbound = bound + lfact,
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
-saveRDS(k_result_flood_county, file = "R:/Users/amsuarez/Colorado/k_result_flood_county.rds")
+saveRDS(k_result_flood_county, file = "Chapter1/Colorado/k_result_flood_county.rds")
+
