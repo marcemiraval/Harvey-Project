@@ -384,17 +384,31 @@ ggplot(scaled_heat_clusters, aes(day, as.factor(topic))) +
   labs(fill = "")
 ```
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+```{r combine_datasets, echo=FALSE, message=FALSE}
+
+# Combine datasets to get tweets and location
+=======
+```{r}
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
 
 
 ```{r joinTweetsTopics, echo=FALSE, message=FALSE}
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
 
 tweet_and_topic <- dplyr::left_join(heat_clusters, colo_clean, by = "tweet_id") %>% 
   select(tweet_id = tweet_id,
          topic = topic,
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
          text, text,
          user = user,
          u_profile = u_profile,
          date = date,
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
          lat = lat,
          lon = lon,
          day = day.x) %>% 
@@ -417,11 +431,51 @@ library(htmltools)
 
 markerCol <- colorFactor(palette = brewer.pal(12, "Paired"), tweet_and_topic_geo$topic)
 
+<<<<<<< HEAD
+TopicMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+=======
+         text, text,
+         user = user,
+         u_profile = u_profile,
+         date = date,
+         lat = lat,
+         lon = lon,
+         day = day.x)
+```
+
+```{r}
+tweet_and_topic_geo <- tweet_and_topic %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+```
+
+```{r}
+library(colorspace)
+
+markerCol <- colorFactor(palette = (diverge_hsv(14)), tweet_and_topic_geo$topic)
+
 TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
+TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
   addTiles()  %>%
   addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
   addCircles(weight = 3, 
              radius=40,
+<<<<<<< HEAD
+<<<<<<< HEAD
+             color= ~pal(topic), 
+=======
+             color= markerCol(tweet_and_topic_geo$topic), 
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
+             stroke = TRUE, 
+             fillOpacity = 0.5,
+             popup = ~htmlEscape(tweet_and_topic_geo$text))%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+<<<<<<< HEAD
+TopicMap
+=======
              color= markerCol(tweet_and_topic_geo$topic), 
              stroke = TRUE, 
              fillOpacity = 0.5,
@@ -430,9 +484,20 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
 
 TopicalMap
 
+htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodCluster.html")
+
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
+=======
+TopicalMap
+
 htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodClusters.html")
 
+>>>>>>> e399290967834de5feafd5306ad45d86102dc7f5
 ```
 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> f196eb6f299608ac4f356d51d652fe65d2010fa6
