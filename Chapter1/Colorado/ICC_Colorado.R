@@ -26,47 +26,16 @@ library(lsa) # To compute cosine metric
 
 library(topicmodels)
 
-
-
 # Defining working directory
 setwd ("Chapter1/Colorado")
 
-
-
-####################### DATA CLEANING ###############################
-
-# Loading data into R
-colorado <- read_csv("ColoradoFloodOriginal.csv")
-
-colorado <- colorado %>% # Removing retweets
-  filter(!str_detect(t_text, "^RT"))
-
-colorado$t_text <- str_to_lower(colorado$t_text) # Converting text to lower_case letter
-
-TweetsToExclude <- c("i'm at", "vegas", "#job", "tweetmyjobs",
-                     "i like that b", "playboy ranks")
-
-
-# Here is to remove tweets from bots
-# grepl function doesn't take all elements in the vector.
-# So we have to paste them with an or stament like "i'm at|vegas"
-colorado <- colorado[!grepl(paste(TweetsToExclude, collapse = "|"), colorado$t_text),] 
-
-
-
 ####################### DATA READING AND PROJECTING ###########################
 
+colo_clean <- readRDS(file = "colo_clean.rds")
 
-# Format date/time
-colorado$date <- ymd_hms(colorado$created_at, tz="UTC")
 
 # Store tweets as simple features and project data
-colo_tweets_sf <- colorado %>% 
-  select(lat = latitude, 
-         lon = longitude, 
-         date = date, 
-         state = c_state,
-         tweet = t_text) %>% 
+colo_tweets_sf <- colo_clean %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% # set WGS84 as original datum
   st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 + 
                lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
@@ -75,41 +44,13 @@ colo_tweets_sf <- colorado %>%
 # st_crs(colo_tweets_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 
-
-######################### DEFINING TEMPORAL STAGES #####################################
-
-# Creating an attribute to define flood_stage for each report
-min_datetime <- "2013-09-01 00:00:48 PDT"
-max_datetime <- "2013-09-30 23:52:05 PDT"
-
-colo_tweets_sf$flood_stage = "Pre_flood" # Initialize Variable
-
-# Ye's stages 
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
-#                              colo_tweets_sf$date < "2013-09-09 00:00:00 PDT"] = "Pre_flood"
-# colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-09 00:00:00 PDT" & 
-#                              colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
-# And the Inmmediate aftermath and post_flood are the same
-
-# My stages
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= min_datetime & 
-                             colo_tweets_sf$date < "2013-09-11 00:00:00 PDT"] = "Pre_flood"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-11 00:00:00 PDT" & 
-                             colo_tweets_sf$date < "2013-09-16 00:00:00 PDT"] = "Flood"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-16 00:00:00 PDT" &
-                             colo_tweets_sf$date < "2013-09-23 00:00:00 PDT"] = "Immediate_Aftermath"
-colo_tweets_sf$flood_stage[colo_tweets_sf$date >= "2013-09-23 00:00:00 PDT" &
-                             colo_tweets_sf$date <= max_datetime] = "Post_Flood"
-
-
-
 ######################### SPATIAL CLUSTERING ####################################
 
 set.seed(123)
 
 clusters <- hdbscan(colo_tweets_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 350)
+                    minPts = 315)
 
 colo_clusters <- colo_tweets_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -139,9 +80,20 @@ coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting cluster
 
 coloMap
 
+######################### HISTOGRAMS ###########################################
+
+min_datetime <- min(colo_clean$date)
+max_datetime <- max(colo_clean$date)
 
 
-######################### HISTOGRAM ###########################################
+# creating frequency histograms of reports colored by stage (using create_histo function)
+
+create_histo(InputFile = colo_clean, HistoColor = NA, HistoBinWidth = 3600,
+             SavePathFilename = "Outputs/gen_hist.png")
+create_histo(InputFile = colo_clean, HistoColor = "black", HistoBinWidth = 21600,
+             SavePathFilename = "Outputs/gen_hist_6h")
+
+
 
 ## Making sure stages are defined as categorical variables
 colo_clusters$flood_stage <- as.factor(colo_clusters$flood_stage)
