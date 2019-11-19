@@ -25,6 +25,7 @@ library(cluster) # For silhouette coefficient
 library(lsa) # To compute cosine metric
 
 library(topicmodels)
+library(RColorBrewer)
 
 # Defining working directory
 setwd ("Chapter1/Colorado")
@@ -96,28 +97,28 @@ create_histo(InputFile = colo_clean, HistoColor = "black", HistoBinWidth = 21600
 
 
 ## Making sure stages are defined as categorical variables
-colo_clusters$flood_stage <- as.factor(colo_clusters$flood_stage)
+colo_clusters$stage <- as.factor(colo_clusters$stage)
 # levels(colo_clusters$flood_stage) # Checking levels and seeing order
-colo_clusters$flood_stage <- factor(colo_clusters$flood_stage,
-                                     levels(colo_clusters$flood_stage) [c(4,1,2,3)])
+colo_clusters$stage <- factor(colo_clusters$stage,
+                                     levels(colo_clusters$stage) [c(4,1,2,3)])
 #reorder factor levels for legend
 
 
 # creating frequency histograms of reports colored by stage (using create_histo function)
 create_histo(InputFile = colo_clusters, HistoColor = NA, HistoBinWidth = 3600,
-             HistoName = "gen_hist_1h", SavePath = "Outputs")
+             SavePathFilename = "Outputs/HistoClusters") # Very similar to the one with the whole dataset
 
 colo_cluster_denver <- colo_clusters %>% 
   filter(cluster == "1")
   
 create_histo(InputFile = colo_cluster_denver, HistoColor = NA, HistoBinWidth = 3600,
-             HistoName = "Denver_hist_1h", SavePath = "Outputs")
+             SavePathFilename = "Outputs/Denver_hist_1h")
 
 colo_cluster_boulder <- colo_clusters %>% 
   filter(cluster == "2")
 
 create_histo(InputFile = colo_cluster_boulder, HistoColor = NA, HistoBinWidth = 3600,
-             HistoName = "Boulder_hist_1h", SavePath = "Outputs")
+             SavePathFilename = "Outputs/Boulder_hist_1h")
 
 
 
@@ -127,22 +128,26 @@ create_histo(InputFile = colo_cluster_boulder, HistoColor = NA, HistoBinWidth = 
 stages <- list("Pre_flood", "Flood", "Immediate_Aftermath", "Post_Flood") # To use when I create function
 
 # Using my corpus function
-ToExclude <- c("boulderflood", "boulder", "mdt", "#colorado", "#coflood", "like",
-               "will","septemb", "amp", "lol", "#boulder", "im", "ive", "#coloradostrong", 
-               "#cofloodrelief", "@noblebrett", "rt", "#cowx", "ill", "@stapletondenver",
-               "september", "@dailycamera", "colorado", "@boulderflood", "#boulderflood", 
-               "youre", "flood", "flooding", "floods", "flooded", "colo", "cu", "denver", "county")
 
+
+## Making sure stages are defined as categorical variables
+colo_clean$stage <- as.factor(colo_clean$stage)
+# levels(colo_clusters$flood_stage) # Checking levels and seeing order
+colo_clean$stage <- factor(colo_clean$stage,
+                              levels(colo_clean$stage) [c(4,1,2,3)])
+
+ToExclude <- c( "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood",  
+                "#coloradostrong","#cofloodrelief", "#boulder", "colorado", 
+                "flood", "flooding", "boulder", "denver")
 
 create_wordcloud <- function(stage){
 
-  colo_tweets <- colo_clusters %>%
+  colo_tweets <- colo_clean %>%
     # filter(cluster == "1" | cluster == "2") %>%
-    filter(cluster == "1") %>%
-    filter(flood_stage == stage) %>% 
-    st_set_geometry(NULL) %>% 
-    select(tweet) %>% 
-    rename(text = `tweet`) 
+    # filter(cluster == "2") %>%
+    filter(stage == stage) %>% 
+    # st_set_geometry(NULL) %>% 
+    select(text) 
   
   colo_tokens <- colo_tweets %>%
     unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
