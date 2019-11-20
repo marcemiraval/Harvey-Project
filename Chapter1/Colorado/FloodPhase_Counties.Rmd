@@ -1,7 +1,7 @@
 ---
 title: "Flood Phase in Counties"
 author: "Marcela"
-date: "11/13/2019"
+date: "November 19, 2019"
 output: html_document
 ---
 
@@ -10,7 +10,6 @@ output: html_document
 ####  **Subsetting by Affected Counties and Flood Phase**
 
 **3858 tweets** sent during the disaster were filtered based on the 9 counties affected in the disaster --according to the reports: Arapahoe, Boulder, Denver, El Paso, Jefferson, Larimer, Logan, Morgan and Weld.
-
 
 ```{r subset_by_county, echo=FALSE, message=FALSE}
 library(sf)
@@ -218,7 +217,7 @@ k_result_flood_county %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=13}
 topic_model_flood_county <- k_result_flood_county %>% 
-  filter(K == 14) %>% 
+  filter(K == 17) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -244,7 +243,7 @@ td_beta_flood_county %>%
 
 
 
-```{r gamma, echo=FALSE, message=FALSE, warning=FALSE}
+```{r gamma, echo=FALSE, message=FALSE, warning=FALSE, width = 0.9}
 library(ggthemes)
 library(extrafont)
 
@@ -254,7 +253,7 @@ td_gamma_flood_county <- tidy(topic_model_flood_county, matrix = "gamma",
 top_terms_flood_county <- td_beta_flood_county %>%
   arrange(beta) %>%
   group_by(topic) %>%
-  top_n(15, beta) %>%
+  top_n(12, beta) %>%
   arrange(-beta) %>%
   select(topic, term) %>%
   summarise(terms = list(term)) %>%
@@ -270,7 +269,7 @@ gamma_terms_flood_county <- td_gamma_flood_county %>%
          topic = reorder(topic, gamma))
 
 gamma_terms_flood_county %>%
-  top_n(12, gamma) %>%
+  top_n(17, gamma) %>%
   ggplot(aes(topic, gamma, label = terms, fill = topic, alpha = 0.7)) +
   geom_col(show.legend = FALSE) +
   geom_text(hjust = 0, nudge_y = 0.0005, size = 3,
