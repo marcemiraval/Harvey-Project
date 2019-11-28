@@ -1,17 +1,25 @@
 ---
-title: "Colorado_Counties"
-author: "Marcela"
-date: "8/16/2019"
+title: "Colorado_counties"
+author: "Marcela Suárez"
+date: "November 19, 2019"
 output: html_document
 ---
+<br>
 
+
+This document presents the results obtained for Colorado.  
 
 <br>
 
-####  **Subsetting by Affected Counties**
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, tidy=TRUE, warning=FALSE)
+```
 
+####  **Subsetting by Affected Counties and Flood Phase**
 
-```{r subset_by_county, echo=FALSE, message=FALSE}
+**3858 tweets** sent during the disaster were filtered based on the 9 counties affected in the disaster --according to the reports: Arapahoe, Boulder, Denver, El Paso, Jefferson, Larimer, Logan, Morgan and Weld.
+
+```{r subset_by_county}
 library(sf)
 library(tidyverse)
 library(tidytext)
@@ -26,7 +34,7 @@ colo_clean <- readRDS(file = "colo_clean.rds")
 
 ```
 
-```{r subset_projection, echo=FALSE, message=FALSE}
+```{r subset_projection}
 
 affected_counties_p <- st_transform(affected_counties, 4326)
 # st_crs(affected_counties_p)
@@ -34,7 +42,7 @@ affected_counties_p <- st_transform(affected_counties, 4326)
 ```
 
 
-```{r getting_spatial, echo=FALSE, message=FALSE}
+```{r getting_spatial}
 
 library(sf)
 
@@ -47,7 +55,7 @@ colo_sf_p <- colo_clean %>%
 ```
 
 
-```{r point_in_polygon, echo=FALSE, message=FALSE}
+```{r point_in_polygon}
 tweet_in_county <- st_join(colo_sf_p, affected_counties_p) %>% 
   select(county_name = NAME,
          date = date,
@@ -63,7 +71,10 @@ tweet_in_county <- st_join(colo_sf_p, affected_counties_p) %>%
 
 ```
 
-```{r point_in_polygon_proj, echo=FALSE, message=FALSE}
+Only **2576** tweets sent during the "Flood" stage and from these counties were filtered for content analysis.
+
+
+```{r point_in_polygon_proj}
 
 tweet_in_county_p <- tweet_in_county %>% st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 +
                lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
@@ -72,7 +83,7 @@ tweet_in_county_p <- tweet_in_county %>% st_transform(crs ="+proj=lcc +lat_1=20 
 # st_crs(tweet_in_county_p)
 ```
 
-```{r create_map, echo=FALSE, message=FALSE, fig.width=9, fig.height=9}
+```{r create_map, echo=FALSE, fig.width=9, fig.height=9}
 library(mapview)
 
 mapview(affected_counties_p, zcol = "NAME") +
@@ -85,8 +96,8 @@ mapview(affected_counties_p, zcol = "NAME") +
 
 
 
-```{r point_in_polygon_plot, echo=FALSE, message=FALSE, eval=FALSE}
-
+```{r point_in_polygon_plot}
+library(leaflet)
 
 leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
@@ -103,6 +114,7 @@ leaflet() %>% # Interactive map to see resulting clusters
 
 
 ```
+
 
 
 
@@ -132,13 +144,12 @@ tweet_in_county_tidy %>%
 
 ```
 
-
 Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+          
                                  
-                                 
-```{r remove_words_clusters2, echo=FALSE, message=FALSE}
+```{r remove_words}
 
-keywords <- c("boulder", "amp", "|")
+keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood", "colorado")
 
 tweet_in_county_tidy <- tweet_in_county_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -147,11 +158,14 @@ tweet_in_county_tidy <- tweet_in_county_df %>%
 
 tweet_in_county_tidy %>% 
   count(word, sort = TRUE) # Count words
-
 ```
 
 
-```{r explore_tf_idf_clusters2, echo=FALSE, message=FALSE, fig.width=9, fig.height=8}
+<br>
+
+The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. In this case the collection of tweets was the set of tweets belonging to each stage.
+
+```{r explore_tf_idf, fig.width=9, fig.height=8}
 
 tweet_in_county_tf_idf <- tweet_in_county_tidy %>% 
   count(stage, word, sort = TRUE) %>% 
@@ -172,9 +186,48 @@ tweet_in_county_tf_idf %>%
   labs(x = NULL, y = "tf-idf",
        title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
        subtitle = "Words importance within tweets sent during each stage")
-
 ```
 
+<br>
+
+```{r wordclouds}
+library(wordcloud)
+
+colo_tf_idf <- tweet_in_county_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(100) %>% 
+  ungroup 
+
+colo_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) 
+
+stages <- list("preflood", "flood", "immediate_aftermath", "postflood") # To use when I create function
+
+create_wordcloud <- function(stager){
+  
+  colo_stage <- colo_tf_idf %>%
+    filter(stage == stager)
+  
+  png(filename = paste("Outputs/", stager,'_Wordcloud_Counties.png', sep = ""), width=5, height=5, 
+      units="in", res=300) 
+  
+  set.seed(1234)
+  wordcloud(colo_stage$word, colo_stage$n, scale=c(4,0.6),
+                  max.words = 20,  # plot the 30 most common words
+                  random.order = FALSE, 
+                  rot.per = FALSE, 
+                  use.r.layout = FALSE,
+                  color = brewer.pal(6, "Dark2"),
+                  family = "Helvetica")
+
+  dev.off()
+}
+
+lapply(stages, create_wordcloud)
+```
 <br>
 
 
