@@ -11,11 +11,15 @@ This document presents the results obtained for Colorado.
 
 <br>
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, tidy=TRUE, warning=FALSE)
+```
+
 ## **Analysis with the whole dataset**
 
 #### **A general  overview of the dataset**
 
-```{r import_data, echo=FALSE, message=FALSE, tidy=TRUE}
+```{r import_data}
 
 library(tidyverse) 
 colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
@@ -43,7 +47,7 @@ Tweets were collected from `r min(colorado$date)` to `r max(colorado$date)`
 ####  **Cleaning dataset**
 
 * *Removing retweets:*
-```{r remove_retweets, echo=FALSE, message=FALSE}
+```{r remove_retweets}
 
 library(tidytext)
 library(stringr)
@@ -58,7 +62,7 @@ colorado <- colorado %>%
     From the original dataset containing 5915 tweets, only 4837 were retained.  
 
 * *Removing tweets sent by bots:*
-```{r remove_bots, echo=FALSE, message=FALSE}
+```{r remove_bots}
 colorado <- colorado %>% 
   filter(!str_detect(u_profile, "TwitZip")) %>% 
   filter(!str_detect(u_profile, "TMJ-COB PM Jobs")) %>% 
@@ -70,7 +74,7 @@ colorado <- colorado %>%
     Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4086 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4086 tweets were retained.
     
 * *Removing urls, usernames, punctuation and numbers:*
-```{r clean_tweets, echo=FALSE, message=FALSE}
+```{r clean_tweets}
 
 colo_clean <- colorado %>% 
    mutate(text = str_remove_all(text, 'http[^ ]+'), #Finally removing urls in a nice way
@@ -83,7 +87,7 @@ colo_clean <- colorado %>%
 
 
 
-```{r tweets distribution, echo=FALSE, message=FALSE, warning=FALSE}
+```{r tweets_distribution}
 library(scales)
 gen_hist <- ggplot(colo_clean, aes(x = colo_clean$date)) +
   geom_histogram(aes(y = ..density..), colour = "#878787", fill = "white", binwidth = 3600) +
@@ -101,7 +105,7 @@ gen_hist
 ```
 
 
-```{r days_asfactor, echo=FALSE, message=FALSE}
+```{r days_asfactor}
 
 colo_clean <- colo_clean %>% 
   mutate(day = as.factor(day(date))) %>%
@@ -117,7 +121,7 @@ Note: There were only 5 observations on September 15 and only 131 on September 1
 
 In this stage almost **6%** of the tweets were excluded. 228 tweets from the 4086 total tweets.
 
-```{r remove_topuser, echo=FALSE, message=FALSE}
+```{r remove_topuser}
 
 user_frequency <- colo_clean %>%
         group_by(user) %>%
@@ -136,7 +140,7 @@ colo_clean <- colo_clean %>%
 
 Four stages were defined:
 
-```{r define_temporal_stages, echo=FALSE, message=FALSE}
+```{r define_temporal_stages}
 
 colo_clean <- colo_clean %>%  # The way to define them in a tidyway
   mutate(stage = ifelse(date <= "2013-09-11 00:00:00 MDT", "preflood", 
@@ -154,7 +158,7 @@ colo_clean <- colo_clean %>%  # The way to define them in a tidyway
 
 Total number of tweets by stage:
 
-```{r tweets_by_stage, echo=FALSE, message=FALSE}
+```{r tweets_by_stage}
 frequency_by_stage <- colo_clean %>%
         group_by(stage) %>%
         count()
@@ -172,7 +176,7 @@ knitr::kable(frequency_by_stage, format="html")
 
 A quick view of the most common words in the whole dataset: 
 
-```{r one-token-per-document-per-row, echo=FALSE, message=FALSE}
+```{r one-token-per-document-per-row}
 
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
@@ -186,7 +190,7 @@ colo_tidy %>%
 Since **"boulder"** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset. After this process the new list of common words looks as follows:
                                  
                                  
-```{r remove_words, echo=FALSE, message=FALSE}
+```{r remove_words}
 
 keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood", "colorado")
 
@@ -201,7 +205,7 @@ colo_tidy %>%
 ```
 
 
-```{r save_files, echo=FALSE, message=FALSE}
+```{r save_files}
 saveRDS(colo_clean, file = "colo_clean.rds")
 saveRDS(colo_tidy, file = "colo_tidy.rds")
 ```
@@ -211,7 +215,7 @@ saveRDS(colo_tidy, file = "colo_tidy.rds")
 
 The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. In this case the collection of tweets was the set of tweets belonging to each stage.
 
-```{r explore_tf_idf, echo=FALSE, message=FALSE, fig.width=9, fig.height=8}
+```{r explore_tf_idf, fig.width=9, fig.height=8}
 
 colo_tf_idf <- colo_tidy %>% 
   count(stage, word, sort = TRUE) %>% 
@@ -238,12 +242,50 @@ colo_tf_idf %>%
 
 <br>
 
+```{r wordclouds}
+library(wordcloud)
+
+colo_tf_idf <- colo_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(100) %>% 
+  ungroup 
+
+colo_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) 
+
+stages <- list("preflood", "flood", "immediate_aftermath", "postflood") # To use when I create function
+
+create_wordcloud <- function(stager){
+  
+  colo_stage <- colo_tf_idf %>%
+    filter(stage == stager)
+  
+  png(filename = paste("Outputs/", stager,'_Wordcloud_FullDataset.png', sep = ""), width=5, height=5, 
+      units="in", res=300) 
+  
+  set.seed(1234)
+  wordcloud(colo_stage$word, colo_stage$n, scale=c(4,0.6),
+                  max.words = 20,  # plot the 30 most common words
+                  random.order = FALSE, 
+                  rot.per = FALSE, 
+                  use.r.layout = FALSE,
+                  color = brewer.pal(6, "Dark2"),
+                  family = "Helvetica")
+
+  dev.off()
+}
+
+lapply(stages, create_wordcloud)
+```
 
 
 ####  **Topic Modeling**
 
 
-```{r create_matrix, echo=FALSE, message=FALSE}
+```{r create_matrix}
 library(stm) #fast compared to other implementations of topic models. Base don C++
 library(quanteda)
 
@@ -262,7 +304,7 @@ colo_sparse <- colo_tidy %>%
 ```
 
 
-```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
+```{r plot_topic_modeling_results, fig.width=10, fig.height=7}
 
 k_result <- readRDS(file = "k_result.rds")
 
@@ -282,7 +324,7 @@ k_result %>%
        subtitle = "These diagnostics indicate that a good number of topics would be around 13")
 ```
 
-```{r plot_semantic_and_exclusivity, echo=FALSE, message=FALSE, fig.width=9, fig.height=6}
+```{r plot_semantic_and_exclusivity, fig.width=9, fig.height=6}
 
 k_result %>%
   select(K, exclusivity, semantic_coherence) %>%
@@ -298,7 +340,7 @@ k_result %>%
 
 ```
 
-```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
+```{r beta, fig.width=10, fig.height=8}
 topic_model <- k_result %>% 
   filter(K == 17) %>% 
   pull(topic_model) %>% 
@@ -325,7 +367,7 @@ td_beta %>%
 ```
 
 
-```{r gamma, echo=FALSE, message=FALSE, warning=FALSE}
+```{r gamma}
 library(ggthemes)
 library(extrafont)
 
@@ -371,7 +413,7 @@ gamma_terms %>%
 
 ```
 
-```{r prepare_heatmap, echo=FALSE, message=FALSE}
+```{r prepare_heatmap}
 
 heat <- td_gamma %>% 
   rename(tweetid = document) %>% 
@@ -412,7 +454,7 @@ scaled_heat <-
 ```
 
 
-```{r gammaclusters2_heatplot, echo=FALSE, message=FALSE}
+```{r gammaclusters2_heatplot}
 #Assign color variables
 col1 = "#d8e1cf" 
 col2 = "#438484"
