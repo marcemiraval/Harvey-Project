@@ -68,7 +68,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 315)
+                    minPts = 312)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
