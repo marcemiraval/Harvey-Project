@@ -239,7 +239,7 @@ saveRDS(clusters_floodAndIA_dfm, file = "clusters_floodAndIA_dfm.rds")
 
 ```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
 
-k_result_floodAndIA_cluster <- readRDS(file = "k_result_floodAndIA_clusters.rds")
+k_result_floodAndIA_cluster <- readRDS(file = "k_result_floodAndIA_clusters.rds") # This file is in the UCSB box folder since it's too heavy for github
 
 k_result_floodAndIA_cluster %>%
   transmute(K,
