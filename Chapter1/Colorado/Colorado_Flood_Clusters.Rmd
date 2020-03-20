@@ -1,44 +1,48 @@
 ---
 title: "Colorado_Flood_Clusters"
 author: "Marcela"
-date: "11/12/2019"
+date: "19/03/2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
+<br>
 
 <br>
 
-## **Analysis with a subset of the data**
+####  **Data Filtering**
 
-<br>
+I used the clean dataset produced in the "Colorado_Fulldataset" document in order to analyze only general public response in Twitter, since this dataset already exluded tweets sent by official agencies and bots. The total number of tweets in the dataset is **3858**.
 
-####  **Data Cleaning**
-
-Besides the data cleaning already applied to the full dataset and explained in the "Colorado_Fulldataset" document, in this stage we removed tweets sent by Twitter accounts from official agencies since we aim to analyze what general public post. In this stage **6%** of the tweets were excluded. 228 tweets from the 4086 total tweets.
 
 ```{r import_data, echo=FALSE, message=FALSE}
+#setwd(dir= "Chapter1/Colorado/")
 library(tidyverse)
 colo_clean <- readRDS(file = "colo_clean.rds")
+```
 
+```{r check_top_users, echo=FALSE, message=FALSE}
 user_frequency <- colo_clean %>%
         group_by(user) %>%
         count()
-
-colo_clean <- colo_clean %>% 
-  filter(user != "Denver CP")
 ```
-    
 
-Now I will repeat the same analysis but considering tweets sent from what should be the "affected area" (by using spatial clustering) and within the Flood phase of the disaster.
+Tweets sent during the Flood and Inmediate Aftermath phases of the disaster were filtered. This means that **31%** of the tweets were excluded. This is we will use **1181 tweets** from the original 3858 total.
 
-Before doing so, the data was first projected in North America Lambert Conformal Conic.
+```{r filter_OfficialTweets, echo=FALSE, message=FALSE}
+colo_peak_CO <- colo_clean %>% 
+  filter(stage == "flood") 
+```
+
+Before any spatial analysis or plotting, the data was first projected in North America Lambert Conformal Conic.
 
 ```{r getting_spatial, echo=FALSE, message=FALSE}
 
 library(sf)
 
 # Store tweets as simple features and project data
-colo_sf_p <- colo_clean %>% 
+colo_sf_p <- colo_peak_CO %>% 
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 
 
@@ -56,7 +60,19 @@ st_crs(colo_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
 
 ####  **Subsetting by Spatial Clustering**
 
-In order to identify tweets sent from the afected area, a hierarchical implementation of dbscan was used **(hdscan)**. For spatial hierarchical clustering we need to pick a number of minimum points to be considered to identify the cluster. When setting that number with any value betweet 315 and 340, clusters in Colorado were identify. So we picked the minimum value in that range: **315**.
+One of the goals of this study is to confirm if spatially clustered tweets can serve as a proxy for reports from affected areas. So I will repeat the same analysis done for the whole dataset but now considering only tweets belonging to clusters after the spatial clustering process. A hierarchical implementation of dbscan **(hdbscan)** was used for the spatial clustering. For hdbscan we need to pick a number of minimum points to be considered to identify the cluster. When setting that number with any value between 80 and 139, clusters in Colorado were identify. So we picked the minimum value in that range which retains the maximum number of tweets: **80**.
+
+```{r list_of_minPts, echo=FALSE, message=FALSE}
+minPts <- function(a) {
+  cuantox <- a*nrow(colo_peak_CO)/100
+  return(cuantox)
+}
+
+lista <- seq(1, 15, by = 1) 
+
+minPts_list <- lapply(lista, minPts)
+```
+
 
 ```{r spatial_clusters, echo=FALSE, message=FALSE}
 
@@ -68,7 +84,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 312)
+                    minPts = 80)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -79,35 +95,36 @@ colo_clusters <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat 
   st_transform(crs = 4326)
 
 colo_clusters$cluster <- as.factor(colo_clusters$cluster) #Clusters as factors for coloring
-pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
+# pal <- colorFactor(topo.colors(10), clusters$cluster) # In case needed when using leaflet map
+```
 
-# #1. or Red cluster has 608 tweets. Denver
-# #2. or Blue cluster has 1998 tweets. Boulder
-# 2219/4840 tweets were classified as outliers.
+```{r import_ref_data, echo=FALSE, message=FALSE}
+affected_counties <- readRDS(file = "affected_counties.rds")
+affected_counties_p <- st_transform(affected_counties, 4326)
 ```
 
 
 ```{r map_clusters, echo=FALSE, message=FALSE}
+library(mapview)
+# 
+# plot(clusters, gradient = c("yellow", "orange", "red", "blue"))
+# 
+# print(clusters$cluster_scores)
+# 
+# head(clusters$membership_prob)
+# 
+# plot(clusters, scale = 3, gradient = c("purple", "orange", "red"), show_flat = T)
 
-coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting clusters
-  addTiles()  %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
-  addCircles(weight = 3, 
-             radius=40,
-             color= ~pal(cluster), 
-             stroke = TRUE, 
-             fillOpacity = 0.5,
-             popup = ~htmlEscape(cluster))%>% 
-  setView(lng = -105, lat = 40, zoom = 8.5)
 
-coloMap
+mapview(colo_clusters, zcol = "cluster", layer.name = "Clusters") + 
+  mapview(affected_counties_p)
 
 ```
 
 
 #####  **Most common words (Within Spatial Clusters)**
 
-After the spatial filter and filtering only tweets sent during the Flood stage only **16%** of the total tweets were retained. 652 tweets from the 4086 total.
+After the spatial filtering only tweets sent during the Flood stage only **17%** of the total tweets were retained. **669 tweets** from the 3858 total.
 
 ```{r data_subsets_tidy, echo=FALSE, message=FALSE}
 
@@ -115,7 +132,6 @@ After the spatial filter and filtering only tweets sent during the Flood stage o
 
 clusters_df <- colo_clusters %>% 
   filter(cluster == 1 | cluster == 2) %>% 
-  filter(stage == "flood") %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   st_set_geometry(NULL)
 
@@ -136,12 +152,12 @@ clusters_tidy %>%
 ```
 
 
-Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The term **"boulderflood")** was also excluded because it was so common and used neutrally in all four stages. After excluding the two terms, the new list of common words looks as follows:
                                  
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood")
+keywords <- c("boulder", "boulderflood" ) #,"cowx", "$", "amp", "|", "rt", "coflood", "flood"Maybe?
 
 
 clusters_tidy <- clusters_df %>% 
@@ -156,7 +172,7 @@ clusters_tidy %>%
 
 
 
-```{r explore_tf_idf_clusters, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
+```{r explore_tf_idf_clusters, echo=FALSE, message=FALSE, fig.width=10, fig.height=15}
 
 clusters_tf_idf <- clusters_tidy %>% 
   count(day, word, sort = TRUE) %>% 
@@ -187,7 +203,7 @@ clusters_tf_idf %>%
 
 #####  **Topic Modeling**
 
-Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+Again, after playing with different numbers, I decided to train a topic model with 15 topics. From 16 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
 
 ```{r topic_modeling_clusters, echo=FALSE, message=FALSE}
 
@@ -205,24 +221,24 @@ clusters_super_tidy <- clusters_tidy %>%
 # Either one (of the following) works as input for the topic modelling
 
 # Create Document-Term Matrix
-clusters_dfm <- clusters_super_tidy %>%
+clusters_flood_dfm <- clusters_super_tidy %>%
   count(tweet, word, sort = TRUE) %>% 
   cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
 
 # Create Sparce Matrix
-clusters_sparse <- clusters_super_tidy %>%
+clusters_flood_sparse <- clusters_super_tidy %>%
   count(tweet_id, word) %>%
   cast_sparse(tweet_id, word, n)
 
-saveRDS(clusters_sparse, file = "clusters_flood_sparse.rds")
-saveRDS(clusters_dfm, file = "clusters_flood_dfm.rds")
+saveRDS(clusters_flood_sparse, file = "clusters_flood_sparse.rds")
+saveRDS(clusters_flood_dfm, file = "clusters_flood_dfm.rds")
 
 ```
 
 
 ```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
 
-k_result_flood_cluster <- readRDS(file = "k_result_flood_clusters.rds")
+k_result_flood_cluster <- readRDS(file = "k_result_flood_clusters.rds") # This file is in the UCSB box folder since it's too heavy for github
 
 k_result_flood_cluster %>%
   transmute(K,
@@ -237,14 +253,14 @@ k_result_flood_cluster %>%
   labs(x = "K (number of topics)",
        y = NULL,
        title = "Model diagnostics by number of topics",
-       subtitle = "These diagnostics indicate that a good number of topics would be around 13")
+       subtitle = "These diagnostics indicate that a good number of topics would be around 15")
 ```
 
 ```{r plot_semantic_and_exclusivity, echo=FALSE, message=FALSE, fig.width=9, fig.height=6}
 
 k_result_flood_cluster %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(4,6,17)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(9,12,22)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -258,7 +274,7 @@ k_result_flood_cluster %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
 topic_model <- k_result_flood_cluster %>% 
-  filter(K == 17) %>% 
+  filter(K == 15) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -283,13 +299,13 @@ td_beta_clusters %>%
 ```
 
 
-```{r gamma, echo=FALSE, message=FALSE, warning=FALSE}
+```{r gamma, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10}
 library(ggthemes)
 library(extrafont)
 library(scales)
 
 td_gamma_clusters <- tidy(topic_model, matrix = "gamma",                    
-                 document_names = rownames(clusters_sparse))
+                 document_names = rownames(clusters_flood_sparse))
 
 top_terms_clusters <- td_beta_clusters %>%
   arrange(beta) %>%
@@ -412,11 +428,20 @@ tweet_and_topic$topic <- factor(tweet_and_topic$topic)
 
 ```{r geoconversion, echo=FALSE, message=FALSE}
 tweet_and_topic_geo <- tweet_and_topic %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% 
-  filter(topic == "Topic 12")
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)# %>% 
+ # filter(topic != "Topic 6")
+  #filter(user == "WilliamNobleScherer")
+  
 ```
 
 Mapping topic 12 to see spatial distribution:
+
+```{r}
+
+mapview(tweet_and_topic_geo, zcol = "topic", layer.name = "topic", burst = TRUE) + 
+  mapview(affected_counties_p)
+```
+
 
 ```{r topicMap, echo=FALSE, message=FALSE}
 library(colorspace)
@@ -429,7 +454,7 @@ markerCol <- colorFactor(palette = brewer.pal(12, "Paired"), tweet_and_topic_geo
 
 TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
   addTiles()  %>%
-  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addProviderTiles(providers$CartoDB.DarkMatter) %>% 
   addCircles(weight = 3, 
              radius=40,
              color= markerCol(tweet_and_topic_geo$topic), 
