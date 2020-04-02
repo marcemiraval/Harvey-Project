@@ -1,8 +1,10 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "November 19, 2019"
+date: "April 2, 2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 <br>
 
@@ -22,6 +24,7 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE, tidy=TRUE, warning=FALSE)
 ```{r import_data}
 
 library(tidyverse) 
+  setwd(dir= "Chapter1/Colorado/")
 colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
 
  # Create a subset with the variables to be used
@@ -306,7 +309,7 @@ colo_sparse <- colo_tidy %>%
 
 ```{r plot_topic_modeling_results, fig.width=10, fig.height=7}
 
-k_result <- readRDS(file = "k_result.rds")
+k_result <- readRDS(file = "Chapter1/Colorado/k_result.rds")
 
 k_result %>%
   transmute(K,
@@ -452,6 +455,33 @@ scaled_heat <-
   mutate(scaled_total_topic_day = scale_this(total_topic_day))
 
 ```
+
+```{r shapefile}
+library(sf)
+
+tweet_and_topic <- dplyr::left_join(heat, colo_clean, by = "tweet_id") %>% 
+  select(tweet_id = tweet_id,
+         topic = topic,
+         text, text,
+         user = user,
+         u_profile = u_profile,
+         date = date,
+         lat = lat,
+         lon = lon,
+         day = day.x) %>% 
+  mutate(topic = paste0("Topic ", topic))
+```
+
+```{r shapefile}
+tweet_and_topic <- tweet_and_topic %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+#tweet_and_topic$topic <- factor(tweet_and_topic$topic)
+
+#write.csv(tweet_and_topic, file = "tweet_and_topic.csv", row.names = FALSE)
+st_write(tweet_and_topic, "tweet_and_topic.shp")
+```
+
 
 
 ```{r gammaclusters2_heatplot}
