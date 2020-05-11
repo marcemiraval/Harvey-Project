@@ -1,7 +1,7 @@
 ---
 title: "Colorado Clusters During Flood and Intermediate Aftermath"
 author: "Marcela"
-date: "14/03/2020"
+date: "10/05/2020"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -18,9 +18,9 @@ I used the clean dataset produced in the "Colorado_Fulldataset" document in orde
 
 
 ```{r import_data, echo=FALSE, message=FALSE}
-#setwd(dir= "Chapter1/Colorado/")
 library(tidyverse)
 colo_clean <- readRDS(file = "colo_clean.rds")
+write_csv(colo_clean, path = "colo_clean.csv")
 ```
 
 ```{r check_top_users, echo=FALSE, message=FALSE}
@@ -34,6 +34,7 @@ Tweets sent during the Flood and Inmediate Aftermath phases of the disaster were
 ```{r filter_OfficialTweets, echo=FALSE, message=FALSE}
 colo_peak_CO <- colo_clean %>% 
   filter(stage == "flood" | stage == "immediate_aftermath") 
+write_csv(colo_peak_CO, path = "colo_Flood_IA.csv")
 ```
 
 Before any spatial analysis or plotting, the data was first projected in North America Lambert Conformal Conic.
@@ -85,7 +86,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 160)
+                    minPts = 161)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -261,7 +262,7 @@ k_result_floodAndIA_cluster %>%
 
 k_result_floodAndIA_cluster %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(8,10, 14, 15,20)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(6, 8, 10, 14, 22)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -275,7 +276,7 @@ k_result_floodAndIA_cluster %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
 topic_model <- k_result_floodAndIA_cluster %>% 
-  filter(K == 15) %>% 
+  filter(K == 14) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -327,7 +328,7 @@ gamma_terms_clusters <- td_gamma_clusters %>%
          topic = reorder(topic, gamma))
 
 gamma_terms_clusters %>%
-  top_n(21, gamma) %>%
+  top_n(22, gamma) %>%
   ggplot(aes(topic, gamma, label = terms, fill = topic, alpha = 0.7)) +
   geom_col(show.legend = FALSE) +
   geom_text(hjust = 0, nudge_y = 0.0005, size = 3,
@@ -435,13 +436,7 @@ tweet_and_topic_geo <- tweet_and_topic %>%
   
 ```
 
-Mapping topic 12 to see spatial distribution:
-
-```{r}
-
-mapview(tweet_and_topic_geo, zcol = "topic", layer.name = "topic", burst = TRUE) + 
-  mapview(affected_counties_p)
-```
+Mapping topics to see spatial distribution:
 
 
 ```{r topicMap, echo=FALSE, message=FALSE}
@@ -470,5 +465,68 @@ htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodAndIAClusters.html")
 
 ```
 
+```{r reading_floodextent_data, echo=FALSE, message=FALSE}
+
+# From City of Boulder Website
+CityOfBoulderFloods <- st_read(
+  "GroundTruthData/Flood2013Extents/Flood2013Extents.shp")
+
+# From Boulder County Website
+BoulderCounty <- st_read(
+  "GroundTruthData/Flood_2013_Inundated_Areas/Flood_2013_Inundated_Areas.shp")
+
+# The following ones come from the disaster’s geoplatform’s website
+CityOfBoulderFloods2 <- st_read(
+  "GroundTruthData/Partial_Preliminary_2013_Colorado_Flooding_Extents/CityofBoulder.shp") #It's the same as the one from the other data source so I will skip this one
+
+Evans <- st_read(
+  "GroundTruthData/Partial_Preliminary_2013_Colorado_Flooding_Extents/Evans_SouthPlatte_Evans.shp")
+```
+
+```{r mapping_damage_and_tweets, echo=FALSE, message=FALSE}
+library(tmap)
+
+damagePols <- st_read("GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
+tmap_mode("view") 
+map <- tm_shape(damagePols) + 
+  tm_polygons(col = "#756bb1",
+              alpha = 0.8) +
+  tm_shape(tweet_and_topic_geo) + 
+  tm_dots(col = "red",
+             scale=.5,
+             alpha = 0.5)
+map + tm_basemap(server = "Stamen.TonerLite")
+```
+
+
+```{r computing_distance, echo=FALSE, message=FALSE}
+
+# Check if there are points within the polygon. St_within also works for this
+pnts <- tweet_and_topic_geo %>% 
+  mutate(intersection = as.integer(st_intersects(geometry, damagePols))) 
+
+# Compute distances from points to the closest polygon
+dist <- geosphere::dist2Line(p = st_coordinates(pnts), line = st_coordinates(damagePols)[,1:2])
+
+# bind results with original points
+pts.wit.dist <- cbind(pnts, dist) %>% 
+  mutate(distancee = ifelse(is.na(intersection), distance, 0)) %>% 
+  select(-c(intersection, distance))
+
+
+```
+
+```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+
+pts.wit.dist %>% 
+  ggplot(aes(distancee, date, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Distance",
+       y = "Date",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
 
 
