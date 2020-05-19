@@ -2,6 +2,7 @@
 .RData
 .Ruserdata
 Chapter1/Colorado/Outputs/
+Chapter1/Colorado/Data/
 Chapter1/Colorado/ColoradoState/*.csv
 Chapter1/Colorado/ColoradoState/*.gif
 Chapter1/Colorado/ColoradoState/Outputs/
