@@ -4,7 +4,7 @@ library(furrr)
 
 
 
-tweetInFlood_sparse <- readRDS(file = "Chapter1/Colorado/tweetInFlood_sparse.rds")
+tweetInFlood_sparse <- readRDS(file = "Data/tweetInFlood_sparse.rds")
 
 
 
@@ -26,4 +26,4 @@ k_result_tweetInFlood <- many_models %>%
          lbound = bound + lfact,
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
-saveRDS(k_result_tweetInFlood, file = "k_result_tweetInFlood.rds")
+saveRDS(k_result_tweetInFlood, file = "Data/k_result_tweetInFlood.rds")
