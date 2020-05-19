@@ -1,0 +1,537 @@
+---
+title: "Colorado Flood Risk Areas During Flood and Intermediate Aftermath"
+author: "Marcela"
+date: "May 18, 2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+<br>
+
+####  **Subsetting by Flood Risk Areas and Flood and Immediate Aftermath Phases**
+
+
+```{r import_data, echo=FALSE, message=FALSE}
+#setwd(dir= "Chapter1/Colorado/") #best in the console
+library(tidyverse)
+library(sf)
+
+colo_Flood_IA <- read_csv("Data/colo_Flood_IA.csv") %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+```
+
+```{r merging flooded_areas, echo=FALSE, message=FALSE}
+
+floodExtent <- st_read("Data/GroundTruthData/mergedFloodArea.geojson")
+
+tweetInFlood <- st_join(colo_Flood_IA, floodExtent) %>% 
+  filter(!is.na(Id))
+
+```
+
+```{r map, echo=FALSE, message=FALSE}
+
+library(tmap)
+tmap_mode("view")
+
+map <- tm_shape(floodExtent) + 
+  tm_polygons(col = "blue",
+              alpha = 0.5) +
+  tm_shape(tweetInFlood) + 
+  tm_dots(col = "red",
+             scale=1,
+             alpha = 0.5)
+map + tm_basemap(server = "Stamen.TonerLite")
+```
+
+
+#####  **Most common words (Within Affected Counties)**
+
+A quick view of the most common words in the whole dataset: 
+
+```{r data_subsets_tidy2, echo=FALSE, message=FALSE}
+
+#This is mainly to remove geometry to make computation faster
+
+tweetInFlood_df <- tweetInFlood %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  st_set_geometry(NULL)
+
+```
+
+```{r one-token-per-document-per-row-clusters2, echo=FALSE, message=FALSE}
+library(tidytext)
+
+tweetInFlood_tidy <- tweetInFlood_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words)  # remove stopwords
+  
+tweetInFlood_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulder", "boulderflood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+                                 
+                                 
+```{r remove_words_clusters2, echo=FALSE, message=FALSE}
+
+keywords <- c("boulder", "boulderflood")
+
+tweetInFlood_tidy <- tweetInFlood_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) %>%   # remove stopwords
+  filter(!word %in% keywords) 
+
+tweetInFlood_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+```{r explore_tf_idf_clusters2, echo=FALSE, message=FALSE, fig.width=9, fig.height=15}
+
+tweetInFlood_tf_idf <- tweetInFlood_tidy %>% 
+  count(day, word, sort = TRUE) %>% 
+  bind_tf_idf(word, day, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(day) %>% 
+  top_n(10) %>% 
+  ungroup 
+
+tweetInFlood_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, day)) %>% #reordering by tf_idf
+  ggplot(aes(word, tf_idf, fill = day)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~day, scales = "free", ncol = 2)+
+  scale_x_reordered() +
+  coord_flip() +
+  theme(strip.text=element_text(size=11)) +
+  labs(x = NULL, y = "tf-idf",
+       title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
+       subtitle = "Words importance within tweets sent during each stage")
+
+```
+
+<br>
+
+
+
+#####  **Topic Modeling**
+
+
+```{r create_matrix, echo=FALSE, message=FALSE}
+
+library(stm) #fast compared to other implementations of topic models. Base don C++
+library(quanteda)
+
+# Either one (of the following) works as input for the topic modelling
+
+# Create Document-Term Matrix
+tweetInFlood_dfm <- tweetInFlood_tidy %>%
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Create Sparce Matrix
+tweetInFlood_sparse <- tweetInFlood_tidy %>%
+  count(tweet_id, word) %>%
+  cast_sparse(tweet_id, word, n)
+
+saveRDS(tweetInFlood_sparse, file = "Data/tweetInFlood_sparse.rds")
+```
+
+
+
+
+```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
+
+k_result_tweetInFlood <- readRDS(file = "Data/k_result_tweetInFlood.rds")
+
+k_result_tweetInFlood %>%
+  transmute(K,
+            `Lower bound` = lbound,
+            Residuals = map_dbl(residual, "dispersion"),
+            `Semantic coherence` = map_dbl(semantic_coherence, mean),
+            `Held-out likelihood` = map_dbl(eval_heldout, "expected.heldout")) %>%
+  gather(Metric, Value, -K) %>%
+  ggplot(aes(K, Value, color = Metric)) +
+  geom_line(size = 1.5, alpha = 0.7, show.legend = FALSE) +
+  facet_wrap(~Metric, scales = "free_y") +
+  labs(x = "K (number of topics)",
+       y = NULL,
+       title = "Model diagnostics by number of topics",
+       subtitle = "These diagnostics indicate that a good number of topics would be around 13")
+```
+
+
+```{r plot_semantic_and_exclusivity, echo=FALSE, message=FALSE, fig.width=9, fig.height=6}
+
+k_result_tweetInFlood %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  filter(K %in% c(5,9,12,17)) %>% # This values should be the same used when creating the model in the R script
+  unnest() %>%
+  mutate(K = as.factor(K)) %>%
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity")
+
+```
+
+
+```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=8}
+topic_model_flood_floodedArea <- k_result_tweetInFlood %>% 
+  filter(K == 5) %>% 
+  pull(topic_model) %>% 
+  .[[1]]
+
+# topic_model
+
+td_beta_floodedArea <- tidy(topic_model_flood_floodedArea) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta_floodedArea %>% 
+  group_by(topic) %>% 
+  top_n(10, beta) %>% 
+  ungroup %>% 
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+
+
+```{r gamma, echo=FALSE, message=FALSE, warning=FALSE, width = 17}
+library(ggthemes)
+library(extrafont)
+library(scales)
+library(viridis)
+library(hrbrthemes)
+
+td_gamma_floodedArea <- tidy(topic_model_flood_floodedArea, matrix = "gamma",                    
+                 document_names = rownames(tweetInFlood_sparse))
+
+top_terms_floodedArea <- td_beta_floodedArea %>%
+  arrange(beta) %>%
+  group_by(topic) %>%
+  top_n(11, beta) %>%
+  arrange(-beta) %>%
+  select(topic, term) %>%
+  summarise(terms = list(term)) %>%
+  mutate(terms = map(terms, paste, collapse = ", ")) %>% 
+  unnest()
+
+gamma_terms_floodedArea <- td_gamma_floodedArea %>%
+  group_by(topic) %>%
+  summarise(gamma = mean(gamma)) %>%
+  arrange(desc(gamma)) %>%
+  left_join(top_terms_floodedArea, by = "topic") %>%
+  mutate(topic = paste0("Topic ", topic),
+         topic = reorder(topic, gamma))
+
+gamma_terms_floodedArea %>%
+  top_n(12, gamma) %>%
+  ggplot(aes(topic, gamma, label = terms, fill = topic, alpha = 0.7)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(hjust = 0, nudge_y = 0.0005, size = 3.2) +
+  coord_flip() +
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0, 1),
+                     labels = percent_format()) +
+  scale_fill_viridis(discrete=TRUE, guide = FALSE) +
+  theme_ipsum(plot_title_size = 14,
+              subtitle_size = 11,
+              axis_text_size = 9,
+              grid = FALSE,
+              ticks = FALSE) +
+  # theme_tufte(base_family = "CM Roman",ticks = FALSE) +
+  theme(legend.position = "none") +
+  labs(x = NULL, y = expression(gamma),
+       title = "Topics by prevalence in the dataset containing all Colorado tweets",
+       subtitle = "With the top words that contribute to each topic")
+
+```
+
+```{r prepare_heatmap, echo=FALSE, message=FALSE}
+
+heat_floodedArea <- td_gamma_floodedArea %>% 
+  rename(tweetid = document) %>% 
+  mutate(tweet_id = as.integer(tweetid)) %>% 
+  left_join(colo_Flood_IA, by = "tweet_id") %>% 
+  select(tweet_id, topic, gamma, day)
+
+# Assigning a topic to each tweet based on which one was had the maximum Gamma
+heat_floodedArea <- heat_floodedArea %>% 
+  group_by(tweet_id) %>% 
+  filter(gamma == max(gamma)) %>% 
+  ungroup()
+
+# Compute the total number of tweets belonging to each topic each day
+heat_floodedArea <- heat_floodedArea %>% 
+  group_by(day, topic) %>% 
+  add_count() %>% 
+  rename(total_topic_day = n) %>% 
+  ungroup()
+
+# Compute the total number of tweets per day
+heat_floodedArea <- heat_floodedArea %>% 
+  group_by(day) %>% 
+  add_count() %>% 
+  rename(total_tweets_day = n) %>% 
+  mutate(dens = total_topic_day/total_tweets_day)
+
+# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+scaled_heat_floodedArea <- 
+  heat_floodedArea %>%
+  group_by(day) %>%
+  mutate(scaled_total_topic_day = scale_this(total_topic_day))
+
+```
+
+
+```{r gammaclusters2_heatplot, echo=FALSE, message=FALSE}
+#Assign color variables
+col1 = "#d8e1cf" 
+col2 = "#438484"
+
+
+library(RColorBrewer)
+ggplot(scaled_heat_floodedArea, aes(day, as.factor(topic))) +
+  geom_tile(aes(fill = scaled_total_topic_day), color = "white") +
+  scale_fill_gradient(low = col1, high = col2) +  
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "")
+```
+
+
+```{r joinTweetsTopics, echo=FALSE, message=FALSE}
+
+colo_Flood_IA <- colo_Flood_IA %>% 
+  mutate(lon = st_coordinates(.)[,1]) %>% 
+  mutate(lat = st_coordinates(.)[,2])
+
+tweet_and_topic <- dplyr::left_join(heat_floodedArea, colo_Flood_IA, by = "tweet_id") %>%
+  select(tweet_id = tweet_id,
+         topic = topic,
+         text, text,
+         user = user,
+         u_profile = u_profile,
+         date = date,
+         lat = lat,
+         lon = lon,
+         day = day.x) %>%
+  mutate(topic = paste0("Topic ", topic))
+
+tweet_and_topic$topic <- factor(tweet_and_topic$topic)
+```
+
+```{r geoconversion, echo=FALSE, message=FALSE}
+tweet_and_topic_geo <- tweet_and_topic %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) 
+```
+
+
+```{r mapping_damage_and_tweets, echo=FALSE, message=FALSE}
+library(tmap)
+
+damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
+tmap_mode("view") 
+map <- tm_shape(damagePols) + 
+  tm_polygons(col = "#756bb1",
+              alpha = 0.8) +
+  tm_shape(tweet_and_topic_geo) + 
+  tm_dots(col = "topic",
+             scale=1,
+             alpha = 1)
+map + tm_basemap(server = "Stamen.TonerLite")
+```
+
+
+```{r computing_distance, echo=FALSE, message=FALSE}
+
+# Check if there are points within the polygon. St_within also works for this
+pnts <- tweet_and_topic_geo %>% 
+  mutate(intersection = as.integer(st_intersects(geometry, damagePols))) 
+
+# Compute distances from points to the closest polygon
+dist <- geosphere::dist2Line(p = st_coordinates(pnts), line = st_coordinates(damagePols)[,1:2])
+
+# bind results with original points
+pts.wit.dist <- cbind(pnts, dist) %>% 
+  mutate(distancee = ifelse(is.na(intersection), distance, 0)) %>% 
+  select(-c(intersection, distance))
+
+
+```
+
+```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+
+pts.wit.dist %>% 
+  ggplot(aes(distancee, date, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Distance",
+       y = "Date",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
+
+
+```{r distance_histo, echo=FALSE, message=FALSE}
+ggplot(pts.wit.dist, aes(x = distancee)) +
+  geom_density(alpha=.2, colour = "#35978f", fill="#35978f")
+```
+
+
+
+```{r define_distance_classes, echo=FALSE, message=FALSE}
+pts.wit.dist <- pts.wit.dist %>%  # The way to define them in a tidyway
+  mutate(distClass = ifelse(distancee <= 500, "0-500", 
+                        ifelse(distancee <= 1000, "500-1000",
+                               ifelse(distancee <= 1500, "1000-1500",
+                                      ifelse(distancee <= 2000, "1500-2000",
+                                             ifelse(distancee <= 2500, "2000-2500",
+                                                    ifelse(distancee <= 3000, "2500-3000",
+                                                           ifelse(distancee <= 3500, "3000-3500",
+                                                                  ifelse(distancee <= 4000, "3500-4000",
+                                                                         ifelse(distancee <= 4500, "4000-4500",
+                                                                                ifelse(distancee <= 5000, "4500-5000","5000-5500"))))))))))) %>% 
+  mutate(distClass = factor(distClass, levels = unique(distClass))) %>% # Turning stages into factors to use them for plotting later
+  mutate(distClass = factor(distClass,levels(distClass)[c(2, 3, 4, 1, 6, 7, 5)])) # To plot in an specific order
+```
+
+
+```{r prepare_heatmap, echo=FALSE, message=FALSE}
+
+# Compute the total number of tweets belonging to each topic each day
+distancia <- pts.wit.dist %>% 
+  group_by(distClass, topic) %>% 
+  add_count() %>% 
+  rename(total_dist_topic = n) %>% 
+  ungroup()
+
+# Compute the total number of tweets per day
+distancia <- distancia %>%
+  group_by(distClass) %>%
+  add_count() %>%
+  rename(total_dist = n) %>%
+  mutate(dens = total_dist_topic/total_dist)
+
+# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+scaled_distancia <-
+  distancia %>%
+  group_by(distClass) %>%
+  mutate(scaled_total_dist_topic = scale_this(total_dist_topic))
+
+```
+
+```{r distanceCombined, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+
+
+new <- scaled_distancia %>%
+                 group_by(distClass, scaled_total_dist_topic, topic, day, dens) %>%
+                 summarise(count=n())
+
+new %>%
+  ggplot(aes(x=distClass, y=day, size = dens, color = topic)) +
+    geom_point(alpha=0.7) +
+    scale_size(range = c(0.1, 8), name="Population (M)") +
+    scale_color_viridis(discrete=TRUE, guide=FALSE) +
+    theme_ipsum() +
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(size = 8, angle = 90)) +
+    facet_wrap(~topic)
+```
+
+```{r distanceCombined, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+library(viridis)
+library(hrbrthemes)
+
+new <- scaled_distancia %>%
+                 group_by(distClass, scaled_total_dist_topic, topic, day, dens) %>%
+                 summarise(count=n())
+
+new %>%
+  ggplot(aes(x=distClass, y=day, size = count, color = topic)) +
+    geom_point(alpha=0.7) +
+    scale_size(range = c(0.1, 8), name="Population (M)") +
+    scale_color_viridis(discrete=TRUE, guide=FALSE) +
+    theme_ipsum() +
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(size = 8, angle = 90)) +
+    facet_wrap(~topic)
+```
+
+```{r distanceCombined2, echo=FALSE, message=FALSE, fig.width=12}
+
+ggplot(scaled_distancia, aes(distancee, after_stat(density), color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE, guide=FALSE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) +
+  facet_wrap(~topic)
+
+# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+
+```
+
+```{r distanceCombined3, echo=FALSE, message=FALSE, fig.width=15}
+
+ggplot(scaled_distancia, aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE, guide=FALSE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) +
+    facet_wrap(~topic)
+
+# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+
+```
