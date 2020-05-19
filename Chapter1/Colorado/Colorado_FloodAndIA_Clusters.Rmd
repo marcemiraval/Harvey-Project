@@ -1,10 +1,12 @@
 ---
 title: "Colorado Clusters During Flood and Intermediate Aftermath"
 author: "Marcela"
-date: "10/05/2020"
-output: html_document
-editor_options: 
-  chunk_output_type: console
+date: "18/05/2020"
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: inline
 ---
 
 
@@ -18,9 +20,10 @@ I used the clean dataset produced in the "Colorado_Fulldataset" document in orde
 
 
 ```{r import_data, echo=FALSE, message=FALSE}
+# setwd(dir= "Chapter1/Colorado/") # Run in console
 library(tidyverse)
-colo_clean <- readRDS(file = "colo_clean.rds")
-write_csv(colo_clean, path = "colo_clean.csv")
+colo_clean <- readRDS(file = "Data/colo_clean.rds")
+# write_csv(colo_clean, path = "Data/colo_clean.csv")
 ```
 
 ```{r check_top_users, echo=FALSE, message=FALSE}
@@ -34,7 +37,7 @@ Tweets sent during the Flood and Inmediate Aftermath phases of the disaster were
 ```{r filter_OfficialTweets, echo=FALSE, message=FALSE}
 colo_peak_CO <- colo_clean %>% 
   filter(stage == "flood" | stage == "immediate_aftermath") 
-write_csv(colo_peak_CO, path = "colo_Flood_IA.csv")
+# write_csv(colo_peak_CO, path = "Data/colo_Flood_IA.csv")
 ```
 
 Before any spatial analysis or plotting, the data was first projected in North America Lambert Conformal Conic.
@@ -101,25 +104,24 @@ colo_clusters$cluster <- as.factor(colo_clusters$cluster) #Clusters as factors f
 ```
 
 ```{r import_ref_data, echo=FALSE, message=FALSE}
-affected_counties <- readRDS(file = "affected_counties.rds")
+affected_counties <- readRDS(file = "Data/affected_counties.rds")
 affected_counties_p <- st_transform(affected_counties, 4326)
 ```
 
 
 ```{r map_clusters, echo=FALSE, message=FALSE}
-library(mapview)
-# 
-# plot(clusters, gradient = c("yellow", "orange", "red", "blue"))
-# 
-# print(clusters$cluster_scores)
-# 
-# head(clusters$membership_prob)
-# 
-# plot(clusters, scale = 3, gradient = c("purple", "orange", "red"), show_flat = T)
+library(tmap)
 
+tmap_mode("view")
 
-mapview(colo_clusters, zcol = "cluster", layer.name = "Clusters") + 
-  mapview(affected_counties_p)
+map <- tm_shape(affected_counties_p) + 
+  tm_polygons(col = "grey",
+              alpha = 0.8) +
+  tm_shape(colo_clusters) + 
+  tm_dots(col = "cluster",
+          alpha = 1)
+
+map + tm_basemap(server = "Stamen.TonerLite")
 
 ```
 
@@ -175,7 +177,6 @@ clusters_tidy %>%
 
 
 ```{r explore_tf_idf_clusters, echo=FALSE, message=FALSE, fig.width=10, fig.height=50}
-
 clusters_tf_idf <- clusters_tidy %>% 
   count(day, word, sort = TRUE) %>% 
   bind_tf_idf(word, day, n) %>%
@@ -183,6 +184,10 @@ clusters_tf_idf <- clusters_tidy %>%
   group_by(day) %>% 
   top_n(9) %>% 
   ungroup 
+
+```
+
+```{r explore_tf_idf_clusters2, echo=FALSE, message=FALSE, fig.width=10, fig.height=50}
 
 clusters_tf_idf %>% 
   mutate(word = reorder_within(word, tf_idf, day)) %>% #reordering by tf_idf
@@ -232,15 +237,15 @@ clusters_floodAndIA_sparse <- clusters_super_tidy %>%
   count(tweet_id, word) %>%
   cast_sparse(tweet_id, word, n)
 
-saveRDS(clusters_floodAndIA_sparse, file = "clusters_floodAndIA_sparse.rds")
-saveRDS(clusters_floodAndIA_dfm, file = "clusters_floodAndIA_dfm.rds")
+# saveRDS(clusters_floodAndIA_sparse, file = "Data/clusters_floodAndIA_sparse.rds")
+# saveRDS(clusters_floodAndIA_dfm, file = "Data/clusters_floodAndIA_dfm.rds")
 
 ```
 
 
 ```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
 
-k_result_floodAndIA_cluster <- readRDS(file = "k_result_floodAndIA_clusters.rds") # This file is in the UCSB box folder since it's too heavy for github
+k_result_floodAndIA_cluster <- readRDS(file = "Data/k_result_floodAndIA_clusters.rds") # This file is in the UCSB box folder since it's too heavy for github
 
 k_result_floodAndIA_cluster %>%
   transmute(K,
@@ -439,7 +444,7 @@ tweet_and_topic_geo <- tweet_and_topic %>%
 Mapping topics to see spatial distribution:
 
 
-```{r topicMap, echo=FALSE, message=FALSE}
+```{r topicMap, echo=FALSE, message=FALSE, eval=FALSE}
 library(colorspace)
 library(RColorBrewer)
 library(leaflet)
@@ -461,40 +466,28 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
 
 TopicalMap
 
-htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodAndIAClusters.html")
+htmlwidgets::saveWidget(TopicalMap, file = "Outputs/htmls_generated/MapTopicsFloodAndIAClusters.html")
 
-```
-
-```{r reading_floodextent_data, echo=FALSE, message=FALSE}
-
-# From City of Boulder Website
-CityOfBoulderFloods <- st_read(
-  "GroundTruthData/Flood2013Extents/Flood2013Extents.shp")
-
-# From Boulder County Website
-BoulderCounty <- st_read(
-  "GroundTruthData/Flood_2013_Inundated_Areas/Flood_2013_Inundated_Areas.shp")
-
-# The following ones come from the disaster’s geoplatform’s website
-CityOfBoulderFloods2 <- st_read(
-  "GroundTruthData/Partial_Preliminary_2013_Colorado_Flooding_Extents/CityofBoulder.shp") #It's the same as the one from the other data source so I will skip this one
-
-Evans <- st_read(
-  "GroundTruthData/Partial_Preliminary_2013_Colorado_Flooding_Extents/Evans_SouthPlatte_Evans.shp")
 ```
 
 ```{r mapping_damage_and_tweets, echo=FALSE, message=FALSE}
 library(tmap)
 
-damagePols <- st_read("GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
-tmap_mode("view") 
+damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
+
+sometopics <- tweet_and_topic_geo %>% 
+  filter(topic == "Topic 8" | topic == "Topic 22")
+
+tmap_mode("view")
+
 map <- tm_shape(damagePols) + 
   tm_polygons(col = "#756bb1",
               alpha = 0.8) +
-  tm_shape(tweet_and_topic_geo) + 
-  tm_dots(col = "red",
-             scale=.5,
-             alpha = 0.5)
+  tm_shape(sometopics) + 
+  tm_dots(col = "topic",
+             scale=1,
+             alpha = 1)
+
 map + tm_basemap(server = "Stamen.TonerLite")
 ```
 
@@ -529,4 +522,148 @@ pts.wit.dist %>%
   theme(legend.position="bottom")
 ```
 
+```{r distance_histo, echo=FALSE, message=FALSE}
+ggplot(pts.wit.dist, aes(x = distancee)) +
+  geom_density(alpha=.2, colour = "#35978f", fill="#35978f")
+```
+
+```{r define_distance_classes, echo=FALSE, message=FALSE}
+pts.wit.dist <- pts.wit.dist %>%  # The way to define them in a tidyway
+  mutate(distClass = ifelse(distancee <= 500, "0-500", 
+                        ifelse(distancee <= 1000, "500-1000",
+                               ifelse(distancee <= 1500, "1000-1500",
+                                      ifelse(distancee <= 2000, "1500-2000",
+                                             ifelse(distancee <= 2500, "2000-2500",
+                                                    ifelse(distancee <= 3000, "2500-3000",
+                                                           ifelse(distancee <= 3500, "3000-3500",
+                                                                  ifelse(distancee <= 4000, "3500-4000",
+                                                                         ifelse(distancee <= 4500, "4000-4500",
+                                                                                ifelse(distancee <= 5000, "4500-5000",
+                                                                                       ifelse(distancee <= 5500, "5000-5500",
+                                                                                              ifelse(distancee <= 6000, "5500-6000",
+                                                                                                     ifelse(distancee <= 6500, "6000-6500", "6500-7000")))))))))))))) %>% 
+  mutate(distClass = factor(distClass, levels = unique(distClass))) %>% # Turning stages into factors to use them for plotting later
+  mutate(distClass = factor(distClass,levels(distClass)[c(5, 3, 1, 2, 4, 6, 9, 7, 11, 13,10, 12, 14, 8)])) # To plot in an specific order
+```
+
+
+```{r plotting_distance2, echo=FALSE, message=FALSE, fig.width=10, fig.height=15}
+
+pts.wit.dist %>% 
+  ggplot(aes(distancee, distClass, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Distance",
+       y = "Date",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
+
+```{r prepare_heatmap, echo=FALSE, message=FALSE}
+
+# Compute the total number of tweets belonging to each topic each day
+distancia <- pts.wit.dist %>% 
+  group_by(distClass, topic) %>% 
+  add_count() %>% 
+  rename(total_dist_topic = n) %>% 
+  ungroup()
+
+# Compute the total number of tweets per day
+distancia <- distancia %>%
+  group_by(distClass) %>%
+  add_count() %>%
+  rename(total_dist = n) %>%
+  mutate(dens = total_dist_topic/total_dist)
+
+# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+scaled_distancia <-
+  distancia %>%
+  group_by(distClass) %>%
+  mutate(scaled_total_dist_topic = scale_this(total_dist_topic))
+
+```
+
+
+```{r heatplot, echo=FALSE, message=FALSE}
+#Assign color variables
+col1 = "#0571b0" 
+col2 = "#ca0020"
+
+
+library(RColorBrewer)
+ggplot(scaled_distancia, aes(topic, distClass)) +
+  geom_tile(aes(fill = scaled_total_dist_topic), color = "white") +
+  scale_fill_gradient(low = col1, high = col2) +  
+  ylab("Distance Band") +
+  xlab("Topic") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "")
+```
+
+
+```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=14, fig.height=10}
+
+scaled_distancia %>% 
+  ggplot(aes(date, scaled_total_dist_topic, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Date",
+       y = "Distance",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
+
+
+```{r distanceCombined, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+library(viridis)
+library(hrbrthemes)
+
+new <- scaled_distancia %>%
+                 group_by(distClass, scaled_total_dist_topic, topic, day, dens) %>%
+                 summarise(count=n())
+
+new %>%
+  ggplot(aes(x=distClass, y=day, size = count, color = topic)) +
+    geom_point(alpha=0.7) +
+    scale_size(range = c(0.1, 8), name="Population (M)") +
+    scale_color_viridis(discrete=TRUE, guide=FALSE) +
+    theme_ipsum() +
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(size = 8, angle = 90)) +
+    facet_wrap(~topic)
+```
+
+```{r b,fig.width=14, fig.height=10}
+
+ggplot(scaled_distancia, aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm"))
+
+# +
+#     facet_wrap(~topic)
+
+# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+
+```
 
