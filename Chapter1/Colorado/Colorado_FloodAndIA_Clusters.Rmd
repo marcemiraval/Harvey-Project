@@ -466,7 +466,7 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
 
 TopicalMap
 
-htmlwidgets::saveWidget(TopicalMap, file = "Outputs/htmls_generated/MapTopicsFloodAndIAClusters.html")
+#htmlwidgets::saveWidget(TopicalMap, file = "Chapter1/Colorado/Outputs/htmls_generated/MapTopicsFloodAndIAClusters.html")
 
 ```
 
@@ -546,20 +546,6 @@ pts.wit.dist <- pts.wit.dist %>%  # The way to define them in a tidyway
   mutate(distClass = factor(distClass,levels(distClass)[c(5, 3, 1, 2, 4, 6, 9, 7, 11, 13,10, 12, 14, 8)])) # To plot in an specific order
 ```
 
-
-```{r plotting_distance2, echo=FALSE, message=FALSE, fig.width=10, fig.height=15}
-
-pts.wit.dist %>% 
-  ggplot(aes(distancee, distClass, color = topic)) + # 
-  geom_point(size = 2, alpha = 0.7) +
-  labs(x = "Distance",
-       y = "Date",
-       title = "Distance between tweets and nearest reported structure",
-       subtitle = "Distance to the nearest reported structure and tweet's date") +
-  facet_wrap(~topic) +
-  theme(legend.position="bottom")
-```
-
 ```{r prepare_heatmap, echo=FALSE, message=FALSE}
 
 # Compute the total number of tweets belonging to each topic each day
@@ -588,42 +574,6 @@ scaled_distancia <-
 
 ```
 
-
-```{r heatplot, echo=FALSE, message=FALSE}
-#Assign color variables
-col1 = "#0571b0" 
-col2 = "#ca0020"
-
-
-library(RColorBrewer)
-ggplot(scaled_distancia, aes(topic, distClass)) +
-  geom_tile(aes(fill = scaled_total_dist_topic), color = "white") +
-  scale_fill_gradient(low = col1, high = col2) +  
-  ylab("Distance Band") +
-  xlab("Topic") +
-  theme(legend.title = element_text(size = 10),
-        legend.text = element_text(size = 12),
-        plot.title = element_text(size=16),
-        axis.title=element_text(size=12,face="bold"),
-        axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(fill = "")
-```
-
-
-```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=14, fig.height=10}
-
-scaled_distancia %>% 
-  ggplot(aes(date, scaled_total_dist_topic, color = topic)) + # 
-  geom_point(size = 2, alpha = 0.7) +
-  labs(x = "Date",
-       y = "Distance",
-       title = "Distance between tweets and nearest reported structure",
-       subtitle = "Distance to the nearest reported structure and tweet's date") +
-  facet_wrap(~topic) +
-  theme(legend.position="bottom")
-```
-
-
 ```{r distanceCombined, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
 library(viridis)
 library(hrbrthemes)
@@ -649,6 +599,8 @@ ggplot(scaled_distancia, aes(distancee, color = topic)) +
   geom_freqpoly(binwidth = 500)+
   xlab("Distance") +
   ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE, guide=FALSE) +
   theme(legend.title = element_blank(),
         legend.background = element_rect(size = 2),
         legend.text = element_text(size = 10),
@@ -658,10 +610,12 @@ ggplot(scaled_distancia, aes(distancee, color = topic)) +
         axis.line = element_line(colour = "Black"),
         axis.text = element_text(size = 11, color = "black"),
         strip.text = element_text(size = 11),
-        legend.key.width = unit(1.5, "cm"))
-
+        legend.key.width = unit(1.5, "cm")) 
 # +
 #     facet_wrap(~topic)
+
+
+
 
 # geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
 
