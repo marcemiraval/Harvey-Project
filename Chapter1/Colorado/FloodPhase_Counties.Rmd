@@ -19,10 +19,10 @@ library(scales)
 
 # library(rgeos) #  rgeos required for finding out which hole belongs to which exterior ring
 
-affected_counties <- readRDS(file = "affected_counties.rds")
+affected_counties <- readRDS(file = "Data/affected_counties.rds")
 # st_crs(affected_counties)
 
-colo_clean <- readRDS(file = "colo_clean.rds")
+colo_clean <- readRDS(file = "Data/colo_clean.rds")
 
 ```
 
@@ -171,7 +171,7 @@ flood_county_tweet_sparse <- flood_county_tweet_tidy %>%
   count(tweet_id, word) %>%
   cast_sparse(tweet_id, word, n)
 
-saveRDS(flood_county_tweet_sparse, file = "flood_county_tweet_sparse.rds")
+saveRDS(flood_county_tweet_sparse, file = "Data/flood_county_tweet_sparse.rds")
 ```
 
 
@@ -179,7 +179,7 @@ saveRDS(flood_county_tweet_sparse, file = "flood_county_tweet_sparse.rds")
 
 ```{r plot_topic_modeling_results, echo=FALSE, message=FALSE, fig.width=10, fig.height=7}
 
-k_result_flood_county <- readRDS(file = "k_result_flood_county.rds")
+k_result_flood_county <- readRDS(file = "Data/k_result_flood_county.rds")
 
 k_result_flood_county %>%
   transmute(K,
@@ -217,7 +217,7 @@ k_result_flood_county %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=13}
 topic_model_flood_county <- k_result_flood_county %>% 
-  filter(K == 17) %>% 
+  filter(K == 14) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -370,8 +370,7 @@ tweet_and_topic$topic <- factor(tweet_and_topic$topic)
 
 ```{r geoconversion, echo=FALSE, message=FALSE}
 tweet_and_topic_geo <- tweet_and_topic %>% 
-  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% 
-  filter(topic == "Topic 13" | topic == "Topic 7")
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
 ```
 
 ```{r topicMap, echo=FALSE, message=FALSE}
@@ -397,5 +396,75 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
 TopicalMap
 
 htmlwidgets::saveWidget(TopicalMap, file = "MapTopicsFloodCounties.html")
+
+```
+
+
+
+```{r computing_distance, echo=FALSE, message=FALSE}
+damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
+
+
+# Check if there are points within the polygon. St_within also works for this
+pnts <- tweet_and_topic_geo %>% 
+  mutate(intersection = as.integer(st_intersects(geometry, damagePols))) 
+
+# Compute distances from points to the closest polygon
+dist <- geosphere::dist2Line(p = st_coordinates(pnts), line = st_coordinates(damagePols)[,1:2])
+
+# bind results with original points
+pts.wit.dist <- cbind(pnts, dist) %>% 
+  mutate(distancee = ifelse(is.na(intersection), distance, 0)) %>% 
+  select(-c(intersection, distance))
+
+
+```
+
+```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+
+pts.wit.dist %>% 
+  ggplot(aes(distancee, date, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Distance",
+       y = "Date",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
+
+```{r distance_histo, echo=FALSE, message=FALSE}
+ggplot(pts.wit.dist, aes(x = distancee)) +
+  geom_density(alpha=.2, colour = "#35978f", fill="#35978f")
+```
+
+
+```{r b,fig.width=14, fig.height=10}
+
+library(viridis)
+library(hrbrthemes)
+
+pts.wit.dist %>% 
+  filter(distancee <= 12500) %>% 
+  ggplot(aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 13000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE, guide=FALSE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 7, angle = 90, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) +
+    facet_wrap(~topic)
+
+
+# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
 
 ```
