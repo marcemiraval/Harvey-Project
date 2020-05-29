@@ -4,7 +4,7 @@ author: "Marcela"
 date: "22/05/2020"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 <br>
@@ -533,9 +533,33 @@ pts.wit.dist %>%
         legend.key.width = unit(1.5, "cm")) +
     facet_wrap(~topic)
 
+```
 
+```{r b,fig.width=14, fig.height=10}
 
+library(viridis)
+library(hrbrthemes)
 
-# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+pts.wit.dist %>% 
+  ggplot(aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") +
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 7, angle = 90, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) 
 
 ```
