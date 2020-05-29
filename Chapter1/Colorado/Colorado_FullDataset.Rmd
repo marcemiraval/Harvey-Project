@@ -218,7 +218,7 @@ colo_tf_idf %>%
 
 <br>
 
-```{r wordclouds}
+```{r wordclouds, eval=FALSE}
 library(wordcloud)
 colo_tf_idf <- colo_tidy %>% 
   count(stage, word, sort = TRUE) %>% 
@@ -420,7 +420,7 @@ tweet_and_topic_sf <- tweet_and_topic %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326)
 #tweet_and_topic$topic <- factor(tweet_and_topic$topic)
 #write.csv(tweet_and_topic, file = "tweet_and_topic.csv", row.names = FALSE)
-st_write(tweet_and_topic_sf, "Data/tweet_and_topic.geojson")
+#st_write(tweet_and_topic_sf, "Data/tweet_and_topic.geojson")
 ```
 
 
@@ -460,6 +460,7 @@ tweet_and_topic <- dplyr::left_join(heat, colo_clean, by = "tweet_id") %>%
   mutate(topic = paste0("Topic ", topic))
 
 tweet_and_topic$topic <- factor(tweet_and_topic$topic)
+
 ```
 
 ```{r geoconversion, echo=FALSE, message=FALSE}
@@ -469,18 +470,25 @@ tweet_and_topic_geo <- tweet_and_topic %>%
 
 
 ```{r mapping_damage_and_tweets, echo=FALSE, message=FALSE}
+
 library(tmap)
+
+tweet_and_topic_geo1 <- tweet_and_topic_geo %>% 
+  filter(topic == "Topic 1" | topic == "Topic 10" | topic == "Topic 2" | topic == "Topic 3")
 
 damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
 tmap_mode("view") 
 map <- tm_shape(damagePols) + 
   tm_polygons(col = "#756bb1",
               alpha = 0.8) +
-  tm_shape(tweet_and_topic_geo) + 
+  tm_shape(tweet_and_topic_geo1) + 
   tm_dots(col = "topic",
              scale=1,
-             alpha = 1)
-map + tm_basemap(server = "Stamen.TonerLite")
+             alpha = 1) + 
+  tm_basemap(server = "Stamen.TonerLite")
+
+map
+
 ```
 
 
@@ -514,6 +522,7 @@ pts.wit.dist %>%
        subtitle = "Distance to the nearest reported structure and tweet's date") +
   facet_wrap(~topic) +
   theme(legend.position="bottom")
+
 ```
 
 
@@ -523,34 +532,6 @@ ggplot(pts.wit.dist, aes(x = distancee)) +
 ```
 
 
-
-```{r prepare_heatmap, echo=FALSE, message=FALSE}
-
-# Compute the total number of tweets belonging to each topic each day
-distancia <- pts.wit.dist %>% 
-  group_by(topic) %>% 
-  add_count() %>% 
-  rename(total_dist_topic = n) %>% 
-  ungroup()
-
-# Compute the total number of tweets per day
-distancia <- distancia %>%
-  group_by(distClass) %>%
-  add_count() %>%
-  rename(total_dist = n) %>%
-  mutate(dens = total_dist_topic/total_dist)
-
-# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
-scale_this <- function(x){
-  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
-}
-
-scaled_distancia <-
-  distancia %>%
-  group_by(distClass) %>%
-  mutate(scaled_total_dist_topic = scale_this(total_dist_topic))
-
-```
 
 ```{r b,fig.width=14, fig.height=10}
 
@@ -574,17 +555,48 @@ pts.wit.dist %>%
         axis.line = element_line(colour = "Black"),
         axis.text = element_text(size = 11, color = "black"),
         strip.text = element_text(size = 11),
-        legend.key.width = unit(1.5, "cm")) 
-
-# +
-#     facet_wrap(~topic)
-
-
-
-
+        legend.key.width = unit(1.5, "cm")) +
+    facet_wrap(~topic) +
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") 
 # geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+```
+
+```{r c,fig.width=14, fig.height=10}
+
+library(viridis)
+library(hrbrthemes)
+
+pts.wit.dist %>% 
+  filter(distancee <= 7000) %>% 
+  ggplot(aes(x = distancee, y = ..count..)) +
+  geom_freqpoly(aes( color = topic), 
+                binwidth = 500) +
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") +
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE) + # add in the parenthesis , guide=FALSE if I don't want legend
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm"))
 
 ```
+
+
+
 
 ```{r}
 library(wordcloud)
