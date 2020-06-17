@@ -1,7 +1,7 @@
 ---
 title: "Colorado"
 author: "Marcela Suárez"
-date: "May 19, 2020"
+date: "June 17, 2020"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -174,7 +174,7 @@ Since **"boulder"** is the most common word and is going ot have a big effect in
                                  
                                  
 ```{r remove_words}
-keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood", "colorado")
+keywords <- c("boulder", "boulderflood", "cowx", "$", "amp", "|", "rt", "coflood", "colorado", "flood")
 colo_tidy <- colo_clean %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -270,7 +270,7 @@ colo_sparse <- colo_tidy %>%
 
 
 ```{r plot_topic_modeling_results, fig.width=10, fig.height=7}
-k_result <- readRDS(file = "Data/k_result.rds")
+#k_result <- readRDS(file = "Data/k_result.rds")
 k_result %>%
   transmute(K,
             `Lower bound` = lbound,
@@ -290,7 +290,7 @@ k_result %>%
 ```{r plot_semantic_and_exclusivity, fig.width=9, fig.height=6}
 k_result %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(11,17,22)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(9,13,28)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -303,7 +303,7 @@ k_result %>%
 
 ```{r beta, fig.width=10, fig.height=8}
 topic_model <- k_result %>% 
-  filter(K == 11) %>% 
+  filter(K == 13) %>% 
   pull(topic_model) %>% 
   .[[1]]
 # topic_model
@@ -347,7 +347,7 @@ gamma_terms <- td_gamma %>%
   mutate(topic = paste0("Topic ", topic),
          topic = reorder(topic, gamma))
 gamma_terms %>%
-  top_n(11, gamma) %>%
+  top_n(17, gamma) %>%
   ggplot(aes(topic, gamma, label = terms, fill = topic, alpha = 0.7)) +
   geom_col(show.legend = FALSE) +
   geom_text(hjust = 0, nudge_y = 0.0005, size = 3,
@@ -538,8 +538,10 @@ ggplot(pts.wit.dist, aes(x = distancee)) +
 library(viridis)
 library(hrbrthemes)
 
-pts.wit.dist %>% 
-  filter(distancee <= 7000) %>% 
+pts.wit.dist2 <- pts.wit.dist %>% 
+  filter(distancee <= 7000) 
+
+pts.wit.dist2 %>% 
   ggplot(aes(distancee, color = topic)) + 
   geom_freqpoly(binwidth = 500)+
   xlab("Distance") +
@@ -556,12 +558,17 @@ pts.wit.dist %>%
         axis.text = element_text(size = 11, color = "black"),
         strip.text = element_text(size = 11),
         legend.key.width = unit(1.5, "cm")) +
-    facet_wrap(~topic) +
-  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+  facet_wrap(~topic) +
+  geom_freqpoly(data=transform(pts.wit.dist2, topic=NULL),
+                aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
                 binwidth = 500, 
                 color = "red",
-                linetype = "longdash") 
-# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+                alpha = 0.5,
+                linetype = "longdash")
+
+# The solution to keep totals in facets was given here:
+# https://stackoverflow.com/questions/15834897/ggplot2-is-there-a-way-to-overlay-a-single-plot-to-all-facets-in-a-ggplot
+
 ```
 
 ```{r c,fig.width=14, fig.height=10}
@@ -612,9 +619,9 @@ library(wordcloud)
 library(reshape2)
 
 ap_top_terms %>%
-  mutate(topic = paste("topic", topic)) %>%
   acast(term ~ topic, value.var = "beta", fill = 0) %>%
   comparison.cloud(max.words = 100)
+
 
   
 # %>% 
@@ -640,5 +647,8 @@ ap_top_terms %>%
 #   labs(x = NULL, y = expression(beta),
 #        title = "Highest word probabilities for each topic",
 #        subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+
+# Code taken from here: https://stackoverflow.com/questions/45563098/topic-modelling-lda-word-frequency-in-each-topic-and-wordcloud/45577480#45577480
+
 ```
 
