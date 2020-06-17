@@ -3,14 +3,9 @@ library(stm) #fast compared to other implementations of topic models. Base don C
 library(furrr)
 
 
-setwd("R:/Chapter1/Colorado")
-colo_tidy <- readRDS(file = "colo_tidy.rds")
+plan(multicore)
 
-
-
-plan(multiprocess)
-
-many_models <- data_frame(K = c(seq(6, 20, by = 1))) %>%
+many_models <- data_frame(K = c(seq(6, 30, by = 1))) %>%
   mutate(topic_model = future_map(K, ~stm(colo_sparse, K = ., #colo_sparse
                                           verbose = FALSE)))
 
@@ -27,3 +22,4 @@ k_result <- many_models %>%
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
 saveRDS(k_result, file = "k_result.rds")
+
