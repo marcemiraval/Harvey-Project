@@ -270,7 +270,7 @@ colo_sparse <- colo_tidy %>%
 
 
 ```{r plot_topic_modeling_results, fig.width=10, fig.height=7}
-#k_result <- readRDS(file = "Data/k_result.rds")
+k_result <- readRDS(file = "Data/k_result.rds")
 k_result %>%
   transmute(K,
             `Lower bound` = lbound,
