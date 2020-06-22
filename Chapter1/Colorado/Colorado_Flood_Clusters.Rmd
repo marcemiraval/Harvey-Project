@@ -1,7 +1,7 @@
 ---
 title: "Colorado_Flood_Clusters"
 author: "Marcela"
-date: "22/05/2020"
+date: "22/06/2020"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -33,6 +33,16 @@ Tweets sent during the Flood and Inmediate Aftermath phases of the disaster were
 ```{r filter_OfficialTweets, echo=FALSE, message=FALSE}
 colo_peak_CO <- colo_clean %>% 
   filter(stage == "flood") 
+
+colo_pre_CO <- colo_clean %>% 
+  filter(stage == "preflood") 
+
+colo_ima_CO <- colo_clean %>% 
+  filter(stage == "immediate_aftermath") 
+
+colo_post_CO <- colo_clean %>% 
+  filter(stage == "postflood") 
+
 ```
 
 Before any spatial analysis or plotting, the data was first projected in North America Lambert Conformal Conic.
@@ -84,7 +94,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 83)
+                    minPts = 12)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -116,28 +126,29 @@ library(mapview)
 # plot(clusters, scale = 3, gradient = c("purple", "orange", "red"), show_flat = T)
 
 
-mapview(colo_clusters, zcol = "cluster", layer.name = "Clusters") + 
-  mapview(affected_counties_p)
+mapview(colo_clusters, zcol = "cluster", layer.name = "Clusters") 
+ # mapview(affected_counties_p)
 
 ```
 
 
 #####  **Most common words (Within Spatial Clusters)**
 
-After the spatial filtering only tweets sent during the Flood stage only **17%** of the total tweets were retained. **669 tweets** from the 3858 total.
+After the spatial filtering only tweets sent during the Flood stage only **17%** of the total tweets were retained. **660 tweets** from the 3858 total.
 
 ```{r data_subsets_tidy, echo=FALSE, message=FALSE}
 
 #This is mainly to remove geometry to make computation faster
 
 clusters_df <- colo_clusters %>% 
-  filter(cluster == 1 | cluster == 2) %>% 
+  filter(cluster == 7 | cluster == 8 | cluster == 9 | cluster == 10 | cluster == 11 | cluster == 12) %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   st_set_geometry(NULL)
 
 ```
 
 A quick view of the most common words in the whole dataset: 
+
 
 ```{r one-token-per-document-per-row-clusters, echo=FALSE, message=FALSE}
 library(tidytext)
@@ -157,7 +168,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood" ) #,"cowx", "$", "amp", "|", "rt", "coflood", "flood"Maybe?
+keywords <- c("boulder", "boulderflood", "cowx") #,"cowx", "$", "amp", "|", "rt", "coflood", "flood"Maybe?
 
 
 clusters_tidy <- clusters_df %>% 
@@ -260,7 +271,7 @@ k_result_flood_cluster %>%
 
 k_result_flood_cluster %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(10,14,15)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(6,9,11)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -274,7 +285,7 @@ k_result_flood_cluster %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
 topic_model <- k_result_flood_cluster %>% 
-  filter(K == 10) %>% 
+  filter(K == 9) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -514,7 +525,10 @@ ggplot(pts.wit.dist, aes(x = distancee)) +
 library(viridis)
 library(hrbrthemes)
 
-pts.wit.dist %>% 
+pts.wit.dist2 <- pts.wit.dist %>% 
+  filter(distancee <= 7000) 
+
+pts.wit.dist2 %>% 
   ggplot(aes(distancee, color = topic)) + 
   geom_freqpoly(binwidth = 500)+
   xlab("Distance") +
@@ -531,7 +545,13 @@ pts.wit.dist %>%
         axis.text = element_text(size = 7, angle = 90, color = "black"),
         strip.text = element_text(size = 11),
         legend.key.width = unit(1.5, "cm")) +
-    facet_wrap(~topic)
+    facet_wrap(~topic) +
+  geom_freqpoly(data=transform(pts.wit.dist2, topic=NULL),
+                aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                alpha = 0.5,
+                linetype = "longdash")
 
 ```
 
@@ -540,7 +560,10 @@ pts.wit.dist %>%
 library(viridis)
 library(hrbrthemes)
 
-pts.wit.dist %>% 
+pts.wit.dist2 <- pts.wit.dist %>% 
+  filter(distancee <= 7000) 
+
+pts.wit.dist2 %>% 
   ggplot(aes(distancee, color = topic)) + 
   geom_freqpoly(binwidth = 500)+
   geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
