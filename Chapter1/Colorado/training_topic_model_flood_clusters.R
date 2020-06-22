@@ -6,9 +6,9 @@ library(furrr)
 
 # flood_clusters_tweet_sparse <- readRDS(file = "clusters_flood_sparse.rds") #it didn't work with sparce just with dfm
 
-flood_clusters_tweet_dfm <- readRDS(file = "clusters_flood_dfm.rds")
+flood_clusters_tweet_dfm <- readRDS(file = "Chapter1/Colorado/Data/clusters_flood_dfm.rds")
 
-plan(multiprocess)
+plan(multicore)
 
 many_models <- data_frame(K = c(seq(3,24, by = 1))) %>%
   mutate(topic_model = future_map(K, ~stm(flood_clusters_tweet_dfm, K = ., #colo_sparse
@@ -27,4 +27,4 @@ k_result_flood_clusters <- many_models %>%
          lbound = bound + lfact,
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
-saveRDS(k_result_flood_clusters, file = "k_result_flood_clusters.rds")
+saveRDS(k_result_flood_clusters, file = "Chapter1/Colorado/Data/k_result_flood_clusters.rds")
