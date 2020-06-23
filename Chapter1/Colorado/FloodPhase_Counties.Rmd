@@ -1,7 +1,7 @@
 ---
 title: "Flood Phase in Counties"
 author: "Marcela"
-date: "November 19, 2019"
+date: "June 22, 2020"
 output: html_document
 ---
 
@@ -110,7 +110,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters2, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood", "cowx", "amp", "|", "rt", "coflood")
+keywords <- c("boulder", "boulderflood", "cowx")
 
 flood_county_tweet_tidy <- flood_county_tweet_df %>% 
   unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
@@ -202,7 +202,7 @@ k_result_flood_county %>%
 
 k_result_flood_county %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(6,9,14,17)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(5,9,12,14)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -215,9 +215,9 @@ k_result_flood_county %>%
 ```
 
 
-```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=13}
+```{r beta, echo=FALSE, message=FALSE, fig.width=13, fig.height=8}
 topic_model_flood_county <- k_result_flood_county %>% 
-  filter(K == 14) %>% 
+  filter(K == 12) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -444,8 +444,10 @@ ggplot(pts.wit.dist, aes(x = distancee)) +
 library(viridis)
 library(hrbrthemes)
 
-pts.wit.dist %>% 
-  filter(distancee <= 12500) %>% 
+pts.wit.dist2 <- pts.wit.dist %>% 
+  filter(distancee <= 12500) 
+
+pts.wit.dist2 %>% 
   ggplot(aes(distancee, color = topic)) + 
   geom_freqpoly(binwidth = 500)+
   xlab("Distance") +
@@ -462,9 +464,44 @@ pts.wit.dist %>%
         axis.text = element_text(size = 7, angle = 90, color = "black"),
         strip.text = element_text(size = 11),
         legend.key.width = unit(1.5, "cm")) +
-    facet_wrap(~topic)
+    facet_wrap(~topic) +
+  geom_freqpoly(data=transform(pts.wit.dist2, topic=NULL),
+                aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                alpha = 0.5,
+                linetype = "longdash")
+
+```
 
 
-# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+
+```{r b,fig.width=14, fig.height=10}
+
+library(viridis)
+library(hrbrthemes)
+
+pts.wit.dist %>% 
+  filter(distancee <= 12500) %>% 
+  ggplot(aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500) +
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") +
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 13000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 7, angle = 90, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) 
 
 ```
