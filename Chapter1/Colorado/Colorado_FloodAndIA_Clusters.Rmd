@@ -1,7 +1,7 @@
 ---
 title: "Colorado Clusters During Flood and Intermediate Aftermath"
 author: "Marcela"
-date: "18/05/2020"
+date: "22/06/2020"
 output:
   html_document: default
   pdf_document: default
@@ -20,7 +20,7 @@ I used the clean dataset produced in the "Colorado_Fulldataset" document in orde
 
 
 ```{r import_data, echo=FALSE, message=FALSE}
-# setwd(dir= "Chapter1/Colorado/") # Run in console
+#setwd(dir= "Colorado") # Run in console
 library(tidyverse)
 colo_clean <- readRDS(file = "Data/colo_clean.rds")
 # write_csv(colo_clean, path = "Data/colo_clean.csv")
@@ -89,7 +89,7 @@ set.seed(123)
 
 clusters <- hdbscan(colo_sf %>%
                       st_coordinates(), #This rounds coordinates
-                    minPts = 161)
+                    minPts = 19)
 
 colo_clusters <- colo_sf %>% 
   mutate(cluster = clusters$cluster)
@@ -135,7 +135,7 @@ After the spatial filtering only tweets sent during the Flood stage only **30%**
 #This is mainly to remove geometry to make computation faster
 
 clusters_df <- colo_clusters %>% 
-  filter(cluster == 1 | cluster == 2) %>% 
+  filter(cluster == 7 | cluster == 8 | cluster == 9 | cluster == 10 | cluster == 11 | cluster == 12) %>% 
   mutate(tweet = text) %>% # To keep a column with the original tweet
   st_set_geometry(NULL)
 
@@ -161,7 +161,7 @@ Again, since **"boulder"** is the most common word and is going to have a big ef
                                  
 ```{r remove_words_clusters, echo=FALSE, message=FALSE}
 
-keywords <- c("boulder", "boulderflood") #, "cowx", "$", "amp", "|", "rt", "coflood" Maybe?
+keywords <- c("boulder", "boulderflood", "cowx", "coflood","colorado", "flood") #, "cowx", "$", "amp", "|", "rt", "coflood" Maybe?
 
 
 clusters_tidy <- clusters_df %>% 
@@ -237,8 +237,8 @@ clusters_floodAndIA_sparse <- clusters_super_tidy %>%
   count(tweet_id, word) %>%
   cast_sparse(tweet_id, word, n)
 
-# saveRDS(clusters_floodAndIA_sparse, file = "Data/clusters_floodAndIA_sparse.rds")
-# saveRDS(clusters_floodAndIA_dfm, file = "Data/clusters_floodAndIA_dfm.rds")
+saveRDS(clusters_floodAndIA_sparse, file = "Data/clusters_floodAndIA_sparse.rds")
+saveRDS(clusters_floodAndIA_dfm, file = "Data/clusters_floodAndIA_dfm.rds")
 
 ```
 
@@ -267,7 +267,7 @@ k_result_floodAndIA_cluster %>%
 
 k_result_floodAndIA_cluster %>%
   select(K, exclusivity, semantic_coherence) %>%
-  filter(K %in% c(6, 8, 10, 14, 22)) %>% # This values should be the same used when creating the model in the R script
+  filter(K %in% c(4,7,10,12)) %>% # This values should be the same used when creating the model in the R script
   unnest() %>%
   mutate(K = as.factor(K)) %>%
   ggplot(aes(semantic_coherence, exclusivity, color = K)) +
@@ -281,7 +281,7 @@ k_result_floodAndIA_cluster %>%
 
 ```{r beta, echo=FALSE, message=FALSE, fig.width=10, fig.height=8}
 topic_model <- k_result_floodAndIA_cluster %>% 
-  filter(K == 14) %>% 
+  filter(K == 12) %>% 
   pull(topic_model) %>% 
   .[[1]]
 
@@ -453,11 +453,16 @@ library(htmltools)
 
 markerCol <- colorFactor(palette = brewer.pal(12, "Paired"), tweet_and_topic_geo$topic)
 
-TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resulting clusters
+TopicalMap <- leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
   addProviderTiles(providers$CartoDB.DarkMatter) %>% 
-  addCircles(weight = 3, 
-             radius=40,
+  addPolygons(data = damagePols, 
+              color = "red",
+              fillOpacity = 0.5,
+              weight = 1.2) %>% 
+  addCircles(data = tweet_and_topic_geo,
+             weight = 3, 
+             radius=20,
              color= markerCol(tweet_and_topic_geo$topic), 
              stroke = TRUE, 
              fillOpacity = 0.5,
@@ -466,13 +471,16 @@ TopicalMap <- leaflet(tweet_and_topic_geo) %>% # Interactive map to see resultin
 
 TopicalMap
 
-#htmlwidgets::saveWidget(TopicalMap, file = "Chapter1/Colorado/Outputs/htmls_generated/MapTopicsFloodAndIAClusters.html")
+#htmlwidgets::saveWidget(TopicalMap, file = "Outputs/htmls_generated/MapTopicsFloodAndIAClusters.html")
 
 ```
 
 ```{r mapping_damage_and_tweets, echo=FALSE, message=FALSE}
 library(tmap)
 
+original_structures <- st_read("Data/GroundTruthData/Colorado_Flooding_Structures_26Sep2013_FINAL/CO_Flooding_Structures_Final_edits_26SEP13.shp")
+roads_affected <- st_read("Data/GroundTruthData/Colorado_Flooding_Roads_19Sep2013/Colorado_Flooding_Roads_19Sep2013.shp")
+  
 damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
 
 sometopics <- tweet_and_topic_geo %>% 
@@ -483,12 +491,22 @@ tmap_mode("view")
 map <- tm_shape(damagePols) + 
   tm_polygons(col = "#756bb1",
               alpha = 0.8) +
-  tm_shape(sometopics) + 
+  tm_shape(roads_affected) +
+  tm_lines(col = "red") +
+  tm_shape(original_structures) + 
+  tm_dots(col = "red",
+          scale=0.1,
+          alpha = 1) +
+  tm_shape(tweet_and_topic_geo) + 
   tm_dots(col = "topic",
-             scale=1,
-             alpha = 1)
+          scale=0.8,
+          alpha = 1) + 
+  tm_basemap(server = "Stamen.TonerLite")
 
-map + tm_basemap(server = "Stamen.TonerLite")
+map
+
+#tmap_save(map, file = "Colorado/Outputs/htmls_generated/map_topics_FloodAndIA_Clusters.html")
+htmlwidgets::saveWidget(map, file = "Colorado/Outputs/htmls_generated/map_topics_FloodAndIA_Clusters.html")
 ```
 
 
@@ -526,6 +544,115 @@ pts.wit.dist %>%
 ggplot(pts.wit.dist, aes(x = distancee)) +
   geom_density(alpha=.2, colour = "#35978f", fill="#35978f")
 ```
+
+
+```{r plotting_distance, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+
+pts.wit.dist %>% 
+  ggplot(aes(distancee, date, color = topic)) + # 
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Distance",
+       y = "Date",
+       title = "Distance between tweets and nearest reported structure",
+       subtitle = "Distance to the nearest reported structure and tweet's date") +
+  facet_wrap(~topic) +
+  theme(legend.position="bottom")
+```
+
+
+
+```{r b,fig.width=14, fig.height=10}
+
+library(viridis)
+library(hrbrthemes)
+
+
+pts.wit.dist2 <- pts.wit.dist %>% 
+  filter(distancee <= 8000) 
+
+pts.wit.dist2 %>% 
+  ggplot(aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500)+
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE, guide=FALSE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 7, angle = 90, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) +
+    facet_wrap(~topic) +
+  geom_freqpoly(data=transform(pts.wit.dist2, topic=NULL),
+                aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                alpha = 0.5,
+                linetype = "longdash")
+
+```
+
+
+```{r c,fig.width=14, fig.height=10}
+
+library(viridis)
+library(hrbrthemes)
+
+pts.wit.dist %>% 
+  filter(distancee <= 8000) %>% 
+  ggplot(aes(x = distancee, y = ..count..)) +
+  geom_freqpoly(aes( color = topic), 
+                binwidth = 500) +
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") +
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE) + # add in the parenthesis , guide=FALSE if I don't want legend
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r define_distance_classes, echo=FALSE, message=FALSE}
 pts.wit.dist <- pts.wit.dist %>%  # The way to define them in a tidyway
