@@ -1,7 +1,7 @@
 ---
-title: "Colorado Flood Risk Areas During Flood and Intermediate Aftermath"
+title: "Colorado Flood Risk Areas During Flood"
 author: "Marcela"
-date: "May 18, 2020"
+date: "June 22, 2020"
 output: html_document
 editor_options: 
   chunk_output_type: inline
@@ -31,7 +31,7 @@ tweetInFlood <- st_join(colo_Flood_IA, floodExtent) %>%
 
 ```
 
-```{r map, echo=FALSE, message=FALSE}
+```{r map, echo=FALSE, message=FALSE, eval=FALSE}
 
 library(tmap)
 tmap_mode("view")
@@ -39,7 +39,7 @@ tmap_mode("view")
 map <- tm_shape(floodExtent) + 
   tm_polygons(col = "blue",
               alpha = 0.5) +
-  tm_shape(tweetInFlood) + 
+#  tm_shape(tweetInFlood) + 
   tm_dots(col = "red",
              scale=1,
              alpha = 0.5)
@@ -356,13 +356,15 @@ tweet_and_topic_geo <- tweet_and_topic %>%
 library(tmap)
 
 damagePols <- st_read("Data/GroundTruthData/StructuresPols/DamagePolsAllIncluded.geojson")
+StructurePoints <- st_read("Data/GroundTruthData/Colorado_Flooding_Structures_26Sep2013_FINAL/CO_Flooding_Structures_Final_edits_26SEP13.shp")
+
 tmap_mode("view") 
 map <- tm_shape(damagePols) + 
-  tm_polygons(col = "#756bb1",
+  tm_polygons(col = "#f4a582",
               alpha = 0.8) +
-  tm_shape(tweet_and_topic_geo) + 
-  tm_dots(col = "topic",
-             scale=1,
+  tm_shape(StructurePoints) + 
+  tm_dots(col = "#ca0020",
+             scale=0.8,
              alpha = 1)
 map + tm_basemap(server = "Stamen.TonerLite")
 ```
@@ -532,6 +534,29 @@ ggplot(scaled_distancia, aes(distancee, color = topic)) +
         legend.key.width = unit(1.5, "cm")) +
     facet_wrap(~topic)
 
-# geom_freqpoly(data = pts.wit.dist, aes(x = distancee, y = ..count../sum(..count..)), binwidth = 500)
+```
 
+
+```{r distanceCombined3, echo=FALSE, message=FALSE, fig.width=15}
+
+ggplot(scaled_distancia, aes(distancee, color = topic)) + 
+  geom_freqpoly(binwidth = 500) +
+  geom_freqpoly(aes(y = ..count.. / n_distinct(pts.wit.dist$topic)), 
+                binwidth = 500, 
+                color = "red",
+                linetype = "longdash") +
+  xlab("Distance") +
+  ylab("Number of tweets by distance band") +
+  scale_x_continuous(breaks = seq(0, 6000, 1000), expand = c(0, 0), limits = c(0,NA)) +
+  scale_color_viridis(discrete=TRUE) +
+  theme(legend.title = element_blank(),
+        legend.background = element_rect(size = 2),
+        legend.text = element_text(size = 10),
+        plot.background = element_rect(colour = NA),
+        axis.title = element_text(size = 12, face = "bold",
+                                  margin=margin(30,20,0,0)),
+        axis.line = element_line(colour = "Black"),
+        axis.text = element_text(size = 11, color = "black"),
+        strip.text = element_text(size = 11),
+        legend.key.width = unit(1.5, "cm")) 
 ```
