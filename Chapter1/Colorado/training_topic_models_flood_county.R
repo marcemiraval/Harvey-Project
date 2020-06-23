@@ -3,11 +3,9 @@ library(furrr)
 
 
 
-flood_county_tweet_sparse <- readRDS(file = "Chapter1/Colorado/flood_county_tweet_sparse.rds")
+flood_county_tweet_sparse <- readRDS(file = "Chapter1/Colorado/Data/flood_county_tweet_sparse.rds")
 
-
-
-plan(multiprocess)
+plan(multicore)
 
 many_models <- data_frame(K = c(seq(3,24, by = 1))) %>%
   mutate(topic_model = future_map(K, ~stm(flood_county_tweet_sparse, K = ., #colo_sparse
@@ -25,5 +23,5 @@ k_result_flood_county <- many_models %>%
          lbound = bound + lfact,
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
-saveRDS(k_result_flood_county, file = "Chapter1/Colorado/k_result_flood_county.rds")
+saveRDS(k_result_flood_county, file = "Chapter1/Colorado/Data/k_result_flood_county.rds")
 
