@@ -19,6 +19,6 @@ warned_counties <- counties_sf %>%
 # 21 counties warned by NWS according to this report: http://www.nws.noaa.gov/om/assessments/pdfs/14colorado_floods.pdf
 # which is also in Mendeley
 
-saveRDS(warned_counties, file = "Chapter1/Colorado/Data/affected_counties.rds")
+saveRDS(warned_counties, file = "Chapter1/Colorado/Data/warned_counties.rds")
 
 
