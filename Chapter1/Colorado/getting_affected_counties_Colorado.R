@@ -13,6 +13,6 @@ affected_counties <- counties_sf %>%
            NAME ==  "Lincoln" | NAME == "Logan" | NAME ==  "Morgan" | 
            NAME ==  "Sedgwick" | NAME ==  "Washington" | NAME ==  "Weld") # 18 counties were designated for public assistance (FEMA).
 
-saveRDS(affected_counties, file = "affected_counties.rds")
+saveRDS(affected_counties, file = "Chapter1/Colorado/Data/affected_counties.rds")
 
 
