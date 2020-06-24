@@ -4,13 +4,13 @@ library(furrr)
 
 
 
-tweetInFlood_sparse <- readRDS(file = "Data/tweetInFlood_sparse.rds")
+tweetInFlood_sparse <- readRDS(file = "Chapter1/Colorado/Data/tweetInFlood_sparse.rds")
 
 
 
-plan(multiprocess)
+plan(multicore)
 
-many_models <- data_frame(K = c(seq(2, 20, by = 1))) %>%
+many_models <- tibble(K = c(seq(3, 20, by = 1))) %>%
   mutate(topic_model = future_map(K, ~stm(tweetInFlood_sparse, K = ., #colo_sparse
                                           verbose = FALSE)))
 
@@ -26,4 +26,4 @@ k_result_tweetInFlood <- many_models %>%
          lbound = bound + lfact,
          iterations = map_dbl(topic_model, function(x) length(x$convergence$bound)))
 
-saveRDS(k_result_tweetInFlood, file = "Data/k_result_tweetInFlood.rds")
+saveRDS(k_result_tweetInFlood, file = "Chapter1/Colorado/Data/k_result_tweetInFlood.rds")
