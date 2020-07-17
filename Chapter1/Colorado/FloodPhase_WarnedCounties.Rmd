@@ -64,17 +64,23 @@ flood_county_tweet <- st_join(colo_sf_p, warned_counties_p) %>%
 
 ```
 
-Only **817** tweets sent during the "Flood" stage and from these counties were filtered for content analysis.
+Only **871** tweets sent during the "Flood" stage and from these counties were filtered for content analysis.
 
 ```{r create_map, echo=FALSE, message=FALSE, fig.width=9, fig.height=9}
 library(mapview)
 
 mapview(warned_counties_p, zcol = "NAME") +
   mapview(flood_county_tweet, 
-          lwd = 0.5, 
-          cex = 2, 
-          popup = leafpop::popupTable(flood_county_tweet,
-                             zcol = "text"))
+          lwd = 0.5,
+          cex = 2,
+          legend = FALSE)
+
+# +
+#   mapview(flood_county_tweet, 
+#           lwd = 0.5, 
+#           cex = 2, 
+#           popup = leafpop::popupTable(flood_county_tweet,
+#                              zcol = "text"))
 ```
 
 
