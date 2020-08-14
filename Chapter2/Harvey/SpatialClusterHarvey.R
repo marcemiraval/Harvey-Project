@@ -2,7 +2,9 @@
 # LIBRARIES ---------------------------------------------------------------
 
 library(tidyverse) # For ggplot. Nice plots.
+library(tibble)
 library(sf) # Spatial monster
+library(sp)
 
 # For spatial clustering
 library(dbscan)
@@ -19,6 +21,7 @@ library(classInt)
 library(RColorBrewer)
 library(mapview)
 library(classInt)
+library(tmap)
 
 # For text Mining
 library(tm) 
@@ -27,7 +30,7 @@ library(tidytext)
 library(stringr) # For str_to_lower
 library(stringi)
 
-
+options(tigris_use_cache = TRUE)
 
 # Defining working directory
 setwd ("Chapter2")
@@ -281,7 +284,7 @@ saveWidget(harveyMap, file = "harveyMap.html")
 # ANALYSIS IN HEXAGONS -------------------------------------------------------------------
 
 # Data to create basemap
-states <- states(cb = FALSE, resolution = "500k")
+states <- states(cb = FALSE, resolution = "500k") # needs tigris package
 state_sf <- st_as_sf(states)
 texas <- state_sf %>% 
   filter(NAME == "Texas") %>% 
@@ -293,13 +296,13 @@ st_crs(texas)
 texas_sp <-  as(texas, "Spatial")
 
 sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp, 
-                                             n=2500, 
-                                             type="hexagonal")) # Define number of hex
+                                             type="hexagonal",
+                                             cellsize=1.57)) # Create hexagons based on cellsize defined according to Rafa's method
 
-## Not able to generate. Probably because data is not projected. Check this
-# sp_hex100000 <- HexPoints2SpatialPolygons(spsample(texas_sp, 
-#                                                    type = "hexagonal", 
-#                                                    cellsize = 100000)) # Define cellsize. 
+## This was the first optimum number presented in ISCRAM
+# sp_hex2500 <- HexPoints2SpatialPolygons(spsample(texas_sp, 
+#                                              n=2500, 
+#                                              type="hexagonal")) # Create hexagons based on defined number of hex
 
 
 sf_hex <- st_as_sf(sp_hex) %>% 
@@ -375,5 +378,5 @@ SandyHexTweetMap
 htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 
 
-sync(SandyHexSpotMap, SandyHexTweetMap, harveyMap)
+leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
 
