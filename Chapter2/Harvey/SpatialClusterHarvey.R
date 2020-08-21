@@ -76,59 +76,26 @@ TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf[!grepl(paste(TweetsToExclude, colla
 
 
 
-
-# WORDCLOUDS --------------------------------------------------------------
-
-TweetsHarveyWords <- TweetsHarveyTexas_sf %>%
-  st_set_geometry(NULL) %>% 
-  dplyr::select(tweet) %>% 
-  rename(text = `tweet`) 
-
-ToExclude <- c("texas", "houston", "hurricane", "harvey", "austin")
-
-Harvey_tokens <- TweetsHarveyWords %>%
-  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
-  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
-  anti_join(stop_words)%>%
-  # mutate(word = wordStem(word))%>%
-  count(word, sort = TRUE) 
-
-# define color palette
-pal <- brewer.pal(8,"Dark2")
-
-# plot the 30 most common words
-Harvey_tokens %>% 
-  with(wordcloud(word, n, scale=c(4,0.5),
-                 min.freq = 7, max.words = 30,
-                 random.order = FALSE, 
-                 rot.per = FALSE, 
-                 use.r.layout = FALSE,
-                 color = brewer.pal(5, "Blues"),
-                 family = "Helvetica"))
-
-# After this I'll remove stay safe 
-
-
 # FLOOD EXTENT ------------------------------------------------------------
-
-FloodExtent <- st_read("Data/ObservedFloodExtent/ObservedFloodExtent.shp") %>% # Need to reproject in WGS84 datum. long lat format.
-  st_transform(crs = 4326)
-
-
-# In flood we save the "original" or the first simplified version resulting in QGIS. Unable to use the original file for this.
-# But for the real version I just need to run simplifying steps used below with the original file 
-# downloaded from: http://www.arcgis.com/home/item.html?id=826e2679f912443d9c7853d3addd59aa
-# I can't do that now because it will take so much time I don't have.
-
-flood <- st_read("Data/FloodSimplified/femaFloodProjSimplyCheck.shp")
-
-# Here to simplify
-flood_simply <- ms_simplify(input = flood,
-                            keep = 0.025)
-
-# Saving/exporting result
-saveRDS(flood_simply, file = "Data/flood_simply.rds")
-st_write(flood_simply, "Data/flood_simply.shp")
+# 
+# FloodExtent <- st_read("Data/ObservedFloodExtent/ObservedFloodExtent.shp") %>% # Need to reproject in WGS84 datum. long lat format.
+#   st_transform(crs = 4326)
+# 
+# 
+# # In flood we save the "original" or the first simplified version resulting in QGIS. Unable to use the original file for this.
+# # But for the real version I just need to run simplifying steps used below with the original file 
+# # downloaded from: http://www.arcgis.com/home/item.html?id=826e2679f912443d9c7853d3addd59aa
+# # I can't do that now because it will take so much time I don't have.
+# 
+# flood <- st_read("Data/FloodSimplified/femaFloodProjSimplyCheck.shp")
+# 
+# # Here to simplify
+# flood_simply <- ms_simplify(input = flood,
+#                             keep = 0.025)
+# 
+# # Saving/exporting result
+# saveRDS(flood_simply, file = "Data/flood_simply.rds")
+# st_write(flood_simply, "Data/flood_simply.shp")
 
 # Load simplified file
 flood_simply <- readRDS(file = "Data/flood_simply.rds")
@@ -142,20 +109,20 @@ st_crs(flood_simply)
 # Fixing Topology error
 checker <- st_is_valid(flood_simply)
 good <- flood_simply[!is.na(checker),]
-good = good[checker,]
+good <- good[checker,] # "good" is the final version of the final flood file in vector format.
 
 # Creating raster Mike's way
 # bb = AOI::getBoundingBox(fvu) %>% st_as_sf()
 # r = raster(bb)
 # tmp = fasterize::fasterize(fv, r)
 
-# Make a raster of the flood areas
-rraster <- raster()
-extent(rraster) <- extent(good)
-dim(rraster) = c(5000, 5000)
-# res(rraster) <- 5 # set cell size to 2500 metres Also I can play with this later.
-floodR <- fasterize::fasterize(good, rraster)
-saveRDS(floodR, file = "Data/floodR.rds")
+# Make a raster of the flood areas. This is great for plotting
+# rraster <- raster()
+# extent(rraster) <- extent(good)
+# dim(rraster) = c(5000, 5000)
+# # res(rraster) <- 5 # set cell size to 2500 metres Also I can play with this later.
+# floodR <- fasterize::fasterize(good, rraster)
+# saveRDS(floodR, file = "Data/floodR.rds")
 
 floodR <- readRDS(file = "Data/floodR.rds")
 
@@ -176,13 +143,13 @@ st_crs(harvey_clusters)
 clusteredTweets <- harvey_clusters %>% 
   filter(cluster != 0)
 
-intersection <- st_intersection(x = FloodExtent, y = clusteredTweets)
-saveRDS(intersection, file = "Data/TweetsInFlood.rds")
+# intersection <- st_intersection(x = FloodExtent, y = clusteredTweets)
+# saveRDS(intersection, file = "Data/TweetsInFlood.rds")
 
 TweetsInFlood <- readRDS(file = "Data/TweetsInFlood.rds")
 
-st_crs(FloodExtent)
-st_crs(clusteredTweets)
+# st_crs(FloodExtent)
+# st_crs(clusteredTweets)
 
 # PLOT: TWEETS SPATIAL CLUSTERS, NWS REPORTS AND FLOODED AREAS ------------
 
@@ -202,9 +169,9 @@ pal <- colorFactor(c("#bababa", "#762a83", "#bf812d", "#f46d43", "#c51b7d", "#7f
 harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
   addTiles()  %>%
   addProviderTiles(providers$Stamen.TonerLite) %>% 
-  # addRasterImage(floodR, 
-  #                col = '#4393c3',
-  #                opacity = 0.5) %>% 
+  addRasterImage(floodR,
+                 col = '#4393c3', #
+                 opacity = 1) %>%  #0.5
   addCircleMarkers(data = HarveyNWS_sf,
                    weight = 5, 
                    radius = 10,
@@ -212,20 +179,20 @@ harveyMap <- leaflet() %>% # Interactive map to see resulting clusters
                    color = "#35978f",
                    fill = TRUE,
                  #  fillColor = "#35978f",
-                   opacity = 0.8) %>% #With fillOpacity is less transparent
+                   fillOpacity = 1) %>% #With fillOpacity is less transparent #0.8
   addCircleMarkers(data = harvey_clusters,
                    weight = 5,
                    radius= 3,
                    color= ~pal(cluster),
                    stroke = FALSE,
                    fill = TRUE,
-                   fillOpacity = 0.5,
+                   fillOpacity = 1, #0.5
                    popup = ~htmlEscape(cluster)) %>% 
   setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995)
 
 harveyMap
 
-saveWidget(harveyMap, file = "harveyMap.html")
+saveWidget(harveyMap, file = "harveyMapNoOpacity.html")
 
 # This is what I would need if want to read the FloodExtent feature layer from the ESRI map service
 #   addEsriFeatureLayer(
@@ -300,10 +267,9 @@ sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp,
                                              cellsize=1.57)) # Create hexagons based on cellsize defined according to Rafa's method
 
 ## This was the first optimum number presented in ISCRAM
-# sp_hex2500 <- HexPoints2SpatialPolygons(spsample(texas_sp, 
-#                                              n=2500, 
-#                                              type="hexagonal")) # Create hexagons based on defined number of hex
-
+sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp,
+                                             n=69566, #695662/500000
+                                             type="hexagonal")) # Create hexagons based on defined number of hex
 
 sf_hex <- st_as_sf(sp_hex) %>% 
   mutate(group = 1:nrow(.))
@@ -380,3 +346,34 @@ htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
 
 leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
 
+
+# WORDCLOUDS --------------------------------------------------------------
+
+TweetsHarveyWords <- TweetsHarveyTexas_sf %>%
+  st_set_geometry(NULL) %>% 
+  dplyr::select(tweet) %>% 
+  rename(text = `tweet`) 
+
+ToExclude <- c("texas", "houston", "hurricane", "harvey", "austin")
+
+Harvey_tokens <- TweetsHarveyWords %>%
+  unnest_tokens(word, text, "tweets") %>% ## It seems better to use the specific argument to unnest tokens in tweets
+  filter(!str_detect(word, "[0-9]"), !str_detect(word, "#"), !word %in% ToExclude)%>% 
+  anti_join(stop_words)%>%
+  # mutate(word = wordStem(word))%>%
+  count(word, sort = TRUE) 
+
+# define color palette
+pal <- brewer.pal(8,"Dark2")
+
+# plot the 30 most common words
+Harvey_tokens %>% 
+  with(wordcloud(word, n, scale=c(4,0.5),
+                 min.freq = 7, max.words = 30,
+                 random.order = FALSE, 
+                 rot.per = FALSE, 
+                 use.r.layout = FALSE,
+                 color = brewer.pal(5, "Blues"),
+                 family = "Helvetica"))
+
+# After this I'll remove stay safe 
