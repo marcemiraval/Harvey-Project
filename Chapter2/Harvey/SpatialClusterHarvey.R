@@ -250,25 +250,32 @@ saveWidget(harveyMap, file = "harveyMap.html")
 
 # ANALYSIS IN HEXAGONS -------------------------------------------------------------------
 
-# Data to create basemap
-states <- states(cb = FALSE, resolution = "500k") # needs tigris package
-state_sf <- st_as_sf(states)
-texas <- state_sf %>% 
-  filter(NAME == "Texas") %>% 
-  st_transform(crs = 4326)
+# # When using the whole state area
+# 
+# # Data to create basemap
+# states <- states(cb = FALSE, resolution = "500k") # needs tigris package
+# state_sf <- st_as_sf(states)
+# texas <- state_sf %>% 
+#   filter(NAME == "Texas") %>% 
+#   st_transform(crs = 4326)
+# 
+# # Checking CRS
+# st_crs(texas)
+# 
+# texas_sp <-  as(texas, "Spatial")
 
-# Checking CRS
-st_crs(texas)
+
+TexasCounties <- readRDS(file = "Data/TexasCounties.rds") # Total area in meters: 128295306849
+
+texas <- TexasCounties  %>% 
+  st_transform(crs = 4326)
 
 texas_sp <-  as(texas, "Spatial")
 
-sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp, 
-                                             type="hexagonal",
-                                             cellsize=1.57)) # Create hexagons based on cellsize defined according to Rafa's method
 
-## This was the first optimum number presented in ISCRAM
+## Defining number of hexagons works best to cover the whole area
 sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp,
-                                             n=69566, #695662/500000
+                                             n=12500, #Try with 25000 first and it was probably too small. With 12500 polygons, hex area is around 10km2
                                              type="hexagonal")) # Create hexagons based on defined number of hex
 
 sf_hex <- st_as_sf(sp_hex) %>% 
@@ -312,7 +319,7 @@ SandyHexSpotMap <- leaflet(hexWithSpotters) %>%
             position = "bottomright")
 
 SandyHexSpotMap
-htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap.html")
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap10km.html")
 
 
 classes <- 7
@@ -341,11 +348,10 @@ SandyHexTweetMap <- leaflet(hexWithTweets) %>%
             position = "bottomright")
 
 SandyHexTweetMap
-htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap.html")
+htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap10km.html")
 
-
-leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
-
+mix <- leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
+save_html(mix, "mix.html", background = "white", libdir = "lib")
 
 # WORDCLOUDS --------------------------------------------------------------
 
