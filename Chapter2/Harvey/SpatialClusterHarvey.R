@@ -58,21 +58,21 @@ allReports <- readRDS(file = "Data/allReports.rds")  ## havent used this yet
 TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf %>% # Removing retweets
   filter(!str_detect(tweet, "^RT"))
 
-TweetsHarveyTexas_sf$tweet <-  iconv(TweetsHarveyTexas_sf$tweet,
-                                     "UTF-8",
-                                     "UTF-8",
-                                     sub='')
-
-TweetsHarveyTexas_sf$tweet <- str_to_lower(TweetsHarveyTexas_sf$tweet) # Converting text to lower_case letter
-
-TweetsToExclude <- c("stay safe", "prayers", "be safe", "donations")
-
-
-# Here is to remove tweets from bots
-# grepl function doesn't take all elements in the vector.
-# So we have to paste them with an or stament like "i'm at|vegas"
-TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf[!grepl(paste(TweetsToExclude, collapse = "|"), 
-                                                    TweetsHarveyTexas_sf$tweet),] 
+# TweetsHarveyTexas_sf$tweet <-  iconv(TweetsHarveyTexas_sf$tweet,
+#                                      "UTF-8",
+#                                      "UTF-8",
+#                                      sub='')
+# 
+# TweetsHarveyTexas_sf$tweet <- str_to_lower(TweetsHarveyTexas_sf$tweet) # Converting text to lower_case letter
+# 
+# TweetsToExclude <- c("stay safe", "prayers", "be safe", "donations")
+# 
+# 
+# # Here is to remove tweets from bots
+# # grepl function doesn't take all elements in the vector.
+# # So we have to paste them with an or stament like "i'm at|vegas"
+# TweetsHarveyTexas_sf <- TweetsHarveyTexas_sf[!grepl(paste(TweetsToExclude, collapse = "|"), 
+#                                                     TweetsHarveyTexas_sf$tweet),] 
 
 
 
@@ -125,6 +125,146 @@ good <- good[checker,] # "good" is the final version of the final flood file in 
 # saveRDS(floodR, file = "Data/floodR.rds")
 
 floodR <- readRDS(file = "Data/floodR.rds")
+
+# FLOOD FILTER ------------------------------------------------------
+
+TexasCounties <- readRDS(file = "Data/TexasCounties.rds") # Total area in meters: 128295306849
+
+texas <- TexasCounties  %>% 
+  st_transform(crs = 4326)
+
+TweetsInCounties <- st_intersection(x = texas, y = TweetsHarveyTexas_sf) # Tweets in counties
+saveRDS(TweetsInCounties, file = "Data/TweetsInCounties.rds") # 3808 tweets
+
+outside <- sapply(st_intersects(TweetsHarveyTexas_sf, texas),function(x){length(x)==0}) 
+TweetsOut <- TweetsHarveyTexas_sf[outside, ] # Explanation here: https://gis.stackexchange.com/questions/245136/how-to-subset-point-data-by-outside-of-polygon-data-in-r  
+saveRDS(TweetsOut, file = "Data/TweetsOutsideCounties.rds") # 676 tweets outside counties
+
+TweetsInFlood <- st_intersection(x = good, y = TweetsHarveyTexas_sf) # Tweets in counties
+saveRDS(TweetsInFlood, file = "Data/TweetsInFlood.rds") #83 tweets
+
+
+# ANALYSIS IN HEXAGONS -------------------------------------------------------------------
+
+# # When using the whole state area
+# 
+# # Data to create basemap
+# states <- states(cb = FALSE, resolution = "500k") # needs tigris package
+# state_sf <- st_as_sf(states)
+# texas <- state_sf %>% 
+#   filter(NAME == "Texas") %>% 
+#   st_transform(crs = 4326)
+# 
+# # Checking CRS
+# st_crs(texas)
+# 
+# texas_sp <-  as(texas, "Spatial")
+
+texas_sp <-  as(texas, "Spatial")
+
+
+## Defining number of hexagons works best to cover the whole area
+sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp,
+                                             n=12500, #Try with 25000 first and it was probably too small. With 12500 polygons, hex area is around 10km2
+                                             type="hexagonal")) # Create hexagons based on defined number of hex
+
+sf_hex <- st_as_sf(sp_hex) %>% 
+  mutate(group = 1:nrow(.))
+
+# HexagonsWithTweets
+hexWithTweets <- st_join(sf_hex, TweetsInCounties) %>% 
+  group_by(group) %>%
+  summarise(total = sum(!is.na(group)))%>% 
+  mutate(totRatio = total/sum(total))# Add column that normalize totals
+
+# HexagonsWithSpotters
+hexWithSpotters <- st_join(sf_hex, HarveyNWS_sf) %>% 
+  group_by(group) %>%
+  summarise(total = sum(!is.na(group))) %>% 
+  mutate(totRatio = total/sum(total))# Add column that normalize totals
+
+classes <- 6
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithSpotters$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithSpotters$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+SandyHexSpotMap <- leaflet(hexWithSpotters) %>%
+  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~total, 
+            opacity = 0.7, 
+            title = "# of NWS reports",
+            position = "bottomright")
+
+SandyHexSpotMap
+htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap10km.html")
+
+
+classes <- 7
+style_method <- "fisher"
+pal1 <- brewer.pal(classes, "YlOrRd")
+palData <- classIntervals(hexWithTweets$totRatio, n = classes, style=style_method, pal = pal1)
+hexWithTweets$colores <- findColours(palData, pal1)%>%
+  as.factor(.)
+pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
+
+SandyHexTweetMap <- leaflet(hexWithTweets) %>%
+  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addPolygons(fillColor = ~colores,
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "2",
+              fillOpacity = 0.7,
+              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
+                                          total))) %>%
+  addLegend(pal = pal2,
+            values = ~totRatio, 
+            opacity = 0.7, 
+            title = "Tweets Density",
+            position = "bottomright")
+
+SandyHexTweetMap
+htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap10km.html")
+
+mix <- leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
+save_html(mix, "mix.html", background = "white", libdir = "lib")
+
+
+
+## LEVEL 2 TWEETS!!! ------------------------------------------------------
+
+# FloodTweetsInHex <- 
+#   st_join(TweetsInFlood, hexWithSpotters) %>% 
+#   filter(total == 2) # 3 tweets sent within flooded areas and sharing hex with Spotters. Content seems to be irrelevant.
+
+# InHexInCounty <- 
+#   st_join(TweetsInCounties, hexWithSpotters) 
+# 
+# saveRDS(InHexInCounty, file = "Data/InHexInCounty.rds") 
+
+InHexInCounty <- readRDS(file = "Data/InHexInCounty.rds")
+
+CountyTweetsInHex <- InHexInCounty %>% 
+  filter(total != 1) # 30 tweets sent within counties affected and sharing hex with Spotters. There is promosing content. 
+
+CountyTweetsOutHex <- InHexInCounty %>% 
+  filter(total == 1) # 3775 tweets sent within counties affected and but not sharing hex with Spotters. They now need to be classified by content. 
+
+
 
 # SPATIAL CLUSTERING ------------------------------------------------------
 
@@ -248,110 +388,6 @@ harveyMap
 saveWidget(harveyMap, file = "harveyMap.html")
 
 
-# ANALYSIS IN HEXAGONS -------------------------------------------------------------------
-
-# # When using the whole state area
-# 
-# # Data to create basemap
-# states <- states(cb = FALSE, resolution = "500k") # needs tigris package
-# state_sf <- st_as_sf(states)
-# texas <- state_sf %>% 
-#   filter(NAME == "Texas") %>% 
-#   st_transform(crs = 4326)
-# 
-# # Checking CRS
-# st_crs(texas)
-# 
-# texas_sp <-  as(texas, "Spatial")
-
-
-TexasCounties <- readRDS(file = "Data/TexasCounties.rds") # Total area in meters: 128295306849
-
-texas <- TexasCounties  %>% 
-  st_transform(crs = 4326)
-
-texas_sp <-  as(texas, "Spatial")
-
-
-## Defining number of hexagons works best to cover the whole area
-sp_hex <- HexPoints2SpatialPolygons(spsample(texas_sp,
-                                             n=12500, #Try with 25000 first and it was probably too small. With 12500 polygons, hex area is around 10km2
-                                             type="hexagonal")) # Create hexagons based on defined number of hex
-
-sf_hex <- st_as_sf(sp_hex) %>% 
-  mutate(group = 1:nrow(.))
-
-# HexagonsWithTweets
-hexWithTweets <- st_join(sf_hex, TweetsHarveyTexas_sf) %>% 
-  group_by(group) %>%
-  summarise(total = sum(!is.na(group)))%>% 
-  mutate(totRatio = total/sum(total))# Add column that normalize totals
-
-# HexagonsWithSpotters
-hexWithSpotters <- st_join(sf_hex, HarveyNWS_sf) %>% 
-  group_by(group) %>%
-  summarise(total = sum(!is.na(group))) %>% 
-  mutate(totRatio = total/sum(total))# Add column that normalize totals
-
-classes <- 6
-style_method <- "fisher"
-pal1 <- brewer.pal(classes, "YlOrRd")
-palData <- classIntervals(hexWithSpotters$totRatio, n = classes, style=style_method, pal = pal1)
-hexWithSpotters$colores <- findColours(palData, pal1)%>%
-  as.factor(.)
-pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
-
-SandyHexSpotMap <- leaflet(hexWithSpotters) %>%
-  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
-  addProviderTiles(providers$Stamen.TonerLite) %>% 
-  addPolygons(fillColor = ~colores,
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %i",
-                                          total))) %>%
-  addLegend(pal = pal2,
-            values = ~total, 
-            opacity = 0.7, 
-            title = "# of NWS reports",
-            position = "bottomright")
-
-SandyHexSpotMap
-htmlwidgets::saveWidget(SandyHexSpotMap, file = "SandyHexSpotMap10km.html")
-
-
-classes <- 7
-style_method <- "fisher"
-pal1 <- brewer.pal(classes, "YlOrRd")
-palData <- classIntervals(hexWithTweets$totRatio, n = classes, style=style_method, pal = pal1)
-hexWithTweets$colores <- findColours(palData, pal1)%>%
-  as.factor(.)
-pal2 <- colorBin(pal1, domain = palData$brks, bins = palData$brks, pretty = FALSE)
-
-SandyHexTweetMap <- leaflet(hexWithTweets) %>%
-  setView(lng = -96.5, lat = 31.5, zoom = 7) %>%
-  addProviderTiles(providers$Stamen.TonerLite) %>% 
-  addPolygons(fillColor = ~colores,
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "2",
-              fillOpacity = 0.7,
-              popup = ~htmlEscape(sprintf("Reports per hexagon: %f",
-                                          total))) %>%
-  addLegend(pal = pal2,
-            values = ~totRatio, 
-            opacity = 0.7, 
-            title = "Tweets Density",
-            position = "bottomright")
-
-SandyHexTweetMap
-htmlwidgets::saveWidget(SandyHexTweetMap, file = "SandyHexTweetMap10km.html")
-
-mix <- leafsync::sync(SandyHexSpotMap, SandyHexTweetMap)
-save_html(mix, "mix.html", background = "white", libdir = "lib")
 
 # WORDCLOUDS --------------------------------------------------------------
 
