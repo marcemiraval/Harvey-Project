@@ -490,19 +490,8 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
                              TRUE ~ "#762a83"))
   
   level4_clusters$cluster <- as.factor(level4_clusters$cluster) #Clusters as factors for coloring
-  pal <- colorFactor(palette = c("#bababa", "#f46d43", "#762a83"), #, ,"#c51b7d" , "#bf812d", "#7fbc41"
-                     levels = c("0", "1", "2"))
-  
-  # #0. or Grey - No cluster. 187 tweets.
-  # #1. or Red - Tweets sent from a single location. Needs to be removed after content analysis. 56 tweets.
-  # #2. or Brown - Dallas. 171 tweets.
-  # #3. or Futsia - Beaumont. 83 tweets.
-  # #4. or Orange - Houston. 3242 tweets.
-  # #5. or Blue - San Antonio y Austin. 561 tweets.
-  # #6. or Purple - Corpus Christi. 184 tweets.
-  
-  
-  addLegendCustom <- function(map, color, labels, size = 5, opacity = 1, stroke = FALSE, title = "Cluster ID", position = 'bottomright',){
+
+  addLegendCustom <- function(map, color, labels, size = 10, opacity = 1, stroke = FALSE, title = "Spatial Cluster", position = 'bottomright'){
     colorAdditions <- paste0(color, "; border-radius: 50%; width:", size, "px; height:", size, "px")
     labelAdditions <- paste0("<div style='display: inline-block;height: ", 
                              size, "px;margin-top: 4px;line-height: ", size, "px;'>", 
@@ -515,21 +504,10 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
                      position = position))
   }
   
-  
+
   clustersMap <- leaflet(data = level4_clusters) %>% # Interactive map to see resulting clusters
     addTiles()  %>%
-    addProviderTiles(providers$Stamen.TonerLite) %>% 
-    # addRasterImage(floodR,
-    #                col = '#4393c3', #
-    #                opacity = 1) %>%  #0.5
-    # addCircleMarkers(data = HarveyNWS_sf,
-    #                  weight = 5, 
-    #                  radius = 10,
-    #                  stroke = FALSE,
-    #                  color = "#35978f",
-    #                  fill = TRUE,
-    #                  #  fillColor = "#35978f",
-    #                  fillOpacity = 1) %>% #With fillOpacity is less transparent #0.8
+    addProviderTiles(providers$CartoDB.Voyager) %>% #$Stamen.TonerLite
     addCircleMarkers(weight = 5,
                      radius= 3,
                      color= ~color,
@@ -537,7 +515,6 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
                      fill = TRUE,
                      fillOpacity = 1, #0.5
                      popup = ~htmlEscape(cluster)) %>% 
-  #  setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995)%>%
     addLegendCustom(color = c("#bababa", "#f46d43", "#762a83"), 
                     labels = c("No Cluster",
                                "Cluster 1", 
