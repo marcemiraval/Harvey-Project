@@ -111,7 +111,7 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
   # floodR <- fasterize::fasterize(good, rraster)
   # saveRDS(floodR, file = "Data/floodR.rds")
   
-  floodR <- readRDS(file = "Data/floodR.rds")
+  #floodR <- readRDS(file = here("Chapter2", "Data", "floodR.rds"))
   
   
   
@@ -531,7 +531,9 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
     filter(cluster == 1)
   
   level5_2 <- level4_clusters %>% 
-    filter(cluster != 1)
+    filter(cluster != 1) 
+  
+  level5_2$color <- NULL # drop color column
   
   level5_1 <- level5_1 %>% 
     mutate(cluster = NA) # Just to make sure joining with the other dataset have same columns. Also is to identify these tweets do not come from spatial clusters
@@ -565,16 +567,36 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
   
   ExcludedInFlood <- st_intersection(x = good, y = Excluded) # Spotter reports in flooded areas
   
+ # Creating a unique final dataset 
+  
+  level1 <- dplyr::select(SpotterInCounties,
+                          text = EVENT_TYPE) %>% 
+    mutate(level = "1: High")
+  
+  level2 <- dplyr::select(level2, text) %>% 
+    mutate(level = "2: High-Medium")
+  
+  level3 <- dplyr::select(level3, text) %>% 
+    mutate(level = "3: Medium")
+  
+  level4 <- dplyr::select(level4, text) %>% 
+    mutate(level = "4: Low-Medium")
+  
+  level5 <- dplyr::select(level5, text) %>% 
+    mutate(level = "5: Low")
+  
+  levelss <- dplyr::bind_rows(level1, level2, level3, level4, level5)
   
   ## MAPPING RESULTS!!! ------------------------------------------------------
   
   harveyClassifiedMap <- leaflet() %>% # Interactive map to see resulting clusters
     addTiles()  %>%
     addProviderTiles(providers$Stamen.TonerLite) %>% #$Stamen.TonerLite  #CartoDB.DarkMatter
-    addRasterImage(floodR,
-                   col = '#4393c3', #
-                   opacity = 1) %>%  #0.5
+    # addRasterImage(floodR,
+    #                col = '#4393c3', #
+    #                opacity = 1) %>%  #0.5
     addCircleMarkers(data = SpotterInCounties,
+                     group = "Group A",
                      weight = 5, 
                      radius = 5,
                      stroke = FALSE,
@@ -583,39 +605,104 @@ here::i_am("Chapter2/Harvey/SpatialClusterHarvey.R") # Declares the location of 
                      #  fillColor = "#35978f",
                      fillOpacity = 1) %>% #With fillOpacity is less transparent #0.8
     addCircleMarkers(data = level2,
+                     group = "Group B",
                      weight = 5,
                      radius= 3,
                      color= "#a6d96a",
                      stroke = FALSE,
                      fill = TRUE,
                      fillOpacity = 1, #0.5
-                     popup = ~htmlEscape(text)) %>% 
+                     popup = ~htmlEscape(text)) %>%
     addCircleMarkers(data = level3,
+                     group = "Group C",
                      weight = 5,
                      radius= 3,
                      color= "#F4D03F",#ffffbf#ffeda0
                      stroke = FALSE,
                      fill = TRUE,
                      fillOpacity = 1, #0.5
-                     popup = ~htmlEscape(text)) %>% 
+                     popup = ~htmlEscape(text)) %>%
     addCircleMarkers(data = level4,
+                     group = "Group D",
                      weight = 5,
                      radius= 3,
                      color= "#fd8d3c",#fdae61
                      stroke = FALSE,
                      fill = TRUE,
                      fillOpacity = 1, #0.5
-                     popup = ~htmlEscape(text)) %>% 
+                     popup = ~htmlEscape(text)) %>%
     addCircleMarkers(data = level5,
+                     group = "Group E",
                      weight = 5,
                      radius= 3,
                      color= "#ef3b2c",#d7191c
                      stroke = FALSE,
                      fill = TRUE,
                      fillOpacity = 1, #0.5
-                     popup = ~htmlEscape(text)) %>% 
-    setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995)
+                     popup = ~htmlEscape(text)) %>%
+    setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995) %>% 
+    addLegend(group = "Group E", 
+              colors = "#ef3b2c",
+              opacity = 1,
+              labels = "Level 5",
+              position = "bottomright") %>% 
+    addLegend(group = "Group D", 
+              colors = "#fd8d3c",
+              opacity = 1,
+              labels = "Level 4",
+              position = "bottomright") %>% 
+    addLegend(group = "Group C", 
+              colors = "#F4D03F",
+              opacity = 1,
+              labels = "Level 3",
+              position = "bottomright") %>% 
+    addLegend(group = "Group B", 
+              colors = "#a6d96a",
+              opacity = 1,
+              labels = "Level 2",
+              position = "bottomright") %>% 
+    addLegend(group = "Group A", 
+              colors = "#1a9641",
+              opacity = 1,
+              labels = "Level 1",
+              position = "bottomright") %>%
+    addLayersControl(
+      overlayGroups = c("Group A", "Group B", "Group C", "Group D", "Group E"),
+      options = layersControlOptions(collapsed = FALSE)
+    )
   
   harveyClassifiedMap
   
-  saveWidget(harveyClassifiedMap, file = "harveyClassifiedMap.html")
+  # saveWidget(harveyClassifiedMap, file = "harveyClassifiedMap.html")
+  
+  
+  ## MAPPING RESULTS 2!!! ------------------------------------------------------
+  
+  library(lubridate)
+
+  pal <- colorFactor(c("#1a9641", "#a6d96a", "#F4D03F", "#fd8d3c", "#ef3b2c"), 
+                     domain = c("1: High", "2: High-Medium", "3: Medium","4: Low-Medium","5: Low"))
+ 
+  harveyClassifiedMap <- leaflet(data = levelss) %>% # Interactive map to see resulting clusters
+    addProviderTiles(providers$Stamen.TonerLite) %>% #$Stamen.TonerLite  #CartoDB.DarkMatter
+    # addRasterImage(floodR,
+    #                col = '#4393c3', #
+    #                opacity = 1) %>%  #0.5
+    addCircleMarkers(weight = 5,
+                     radius= 1.5,
+                     color= ~pal(level),
+                     label = ~levelss,
+                     stroke = FALSE,
+                     fill = TRUE,
+                     fillOpacity = 1, #0.5
+                     popup = ~htmlEscape(text)) %>%
+    setView(lng = -96.5, lat = 31.5, zoom = 7.499999999999995) %>% 
+    addLegend(pal = pal,
+              opacity = 1,
+              values = ~level,
+              position = "bottomright",
+              title = "Relevance Level") 
+  
+  harveyClassifiedMap
+
+  
