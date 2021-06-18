@@ -72,6 +72,7 @@ library(RColorBrewer)
 library(classInt)
 library(USAboundaries) # To extract Texas boundary
 
+# TO ANALYZE ONLY WHAT HAPPENS IN COUNTIES DECLARED AS IN EMERGENCY
 # TexasCounties <- readRDS(file = here("Chapter2", "Data", "TexasCounties.rds")) # Total area in meters: 128295306849
 # texas <- TexasCounties  %>% 
 #   st_transform(crs = 4326)
