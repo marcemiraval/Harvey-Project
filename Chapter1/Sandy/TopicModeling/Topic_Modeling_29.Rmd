@@ -1,0 +1,131 @@
+---
+title: "Topic_Modeling"
+author: "Marcela Suarez"
+date: "March 31, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# install.packages("topicmodels")
+# install.packages("slam")
+# install.packages("Rmpfr", dependencies = TRUE)
+# install.packages("ggplot2", dependencies = TRUE)
+# install.packages("tm", dependencies = TRUE)
+# installed.packages("SnowballC")
+# install.packages("wordcloud", dependencies = TRUE)
+library("wordcloud") # Importing package to build the wordcloud
+library("RColorBrewer") # Importing package to get palettes for drawing nice plots.
+library("tm") # Importing package for text Mining
+library("SnowballC")
+library("ggplot2") # Importing package for drawing nice plots.
+library(topicmodels)
+library(tm)
+library(slam)
+library(Rmpfr)
+```
+
+
+## 1. Description of the dataset
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+setwd ("/home/marcela/Documents/ICC") 
+Sandy <- read.csv("Sandy_Subset.csv", header = TRUE, sep = ",") # Loading data into R.
+Sandy <- subset(Sandy, Sandy$text!="#Sandy bgz") #Delete rows containing just that text
+dim(Sandy) 
+Sandy<-Sandy[order(created_at),]
+dates<-strptime(created_at, format="%Y-%m-%d %H:%M:%S")
+Sandy<-cbind(Sandy,dates)
+Sandy<-Sandy[order(as.character(dates)),]
+attach(Sandy) # Making the variables accesible by name within the R session
+before <- subset(Sandy, (dates < "2012-10-29 02:00:00")) 
+```
+
+The dataset contains 99217 from 140780 observations and 13 variables, which corresponds to a 70%. The attributes of this dataset are the following:
+
+## 2. Exploring Term Frequency
+
+Cleaning up text:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+before_list_raw <- before$text # Extracting the text from the tweets in a vector
+before_list <- iconv(before_list_raw, to = "utf-8", sub="")
+before_list <- tolower(before_list)
+before_list  <- gsub("@\\w+", "", before_list) # remove at
+before_list <- gsub("http\\w+", "", before_list)  # remove links http
+for (j in seq(before_list)){
+  before_list[[j]] <- gsub("new york", "New_York", before_list[[j]])
+  before_list[[j]] <- gsub("new jersey", "New_Jersey", before_list[[j]])
+  before_list[[j]] <- gsub("east coast", "east_coast", before_list[[j]])
+  before_list[[j]] <- gsub("stay safe", "stay_safe", before_list[[j]])
+}
+before_corpus <- Corpus(VectorSource(before_list)) # From here on we start constructing the lexical Corpus:
+before_corpus <- tm_map(before_corpus, removePunctuation)
+before_corpus <- tm_map(before_corpus, removeNumbers)
+before_corpus <- tm_map(before_corpus, stemDocument)
+before_corpus <- tm_map(before_corpus, removeWords, stopwords("english"))
+```
+
+```{r cars}
+dtm <-  DocumentTermMatrix(Sandy_corpus)
+dtm <- removeSparseTerms(dtm, 0.99)
+term_tfidf <- tapply(dtm$v/row_sums(dtm)[dtm$i],dtm$j, mean) * log2(nDocs(dtm)/col_sums(dtm > 0))
+median_tfidf <- summary(term_tfidf)[3]
+dtm <- dtm[, term_tfidf >= median_tfidf]
+toRemove <- which(row_sums(dtm) == 0,)
+dtm <- dtm[row_sums(dtm) > 0,]
+
+harmonicMean <- function(logLikelihoods, precision=2000L) {
+llMed <- median(logLikelihoods)
+as.double(llMed - log(mean(exp(-mpfr(logLikelihoods,
+prec = precision) + llMed))))
+}
+
+burnin = 1000
+iter = 1000
+keep = 50
+
+sequ <- seq(2, 100, 10)
+
+fitted_many <- lapply(sequ, function(k) LDA(dtm, k = k,
+method = "Gibbs",control = list(burnin = burnin, iter = iter, keep = keep) ))
+# extract logliks from each topic
+logLiks_many <- lapply(fitted_many, function(L)
+L@logLiks[-c(1:(burnin/keep))])
+# compute harmonic means
+hm_many <- sapply(logLiks_many, function(h) harmonicMean(h))
+
+plot(sequ, hm_many, type = "l")
+k <- sequ[which.max(hm_many)]
+
+seedNum <- 42
+lda <- LDA(dtm, k = k, method = "Gibbs", control = list(
+burnin = burnin, iter = iter, keep = keep, seed=seedNum))
+
+topTenTermsEachTopicBefore29 <- terms(lda,10)
+View(topTenTermsEachTopicBefore29)
+write.csv(terms(lda,100), "myTopicModelDataBefore29.csv")
+
+```
+```{r}
+ldaplot <- ggplot(data.frame(sequ, hm_many), aes(x=sequ, y=hm_many)) + geom_path(lwd=0.5) +
+  theme(text = element_text(family= NULL),
+        axis.title.y=element_text(vjust=1, size=8),
+        axis.title.x=element_text(vjust=-.7, size=8),
+        axis.text=element_text(size=8),
+        plot.title=element_text(size=16)) +
+  xlab('Number of Topics') +
+  ylab('Harmonic Mean') +
+  ggtitle(expression(atop("Latent Dirichlet Allocation Analysis of NEN LLIS", atop(italic("How many distinct topics in the abstracts?"), ""))))
+ldaplot
+```
+
+```{r}
+topicsProb <- topics(lda,1)
+topTenTermsEachTopic[,1]
+topic1tweets <- which(topicsProb==1)
+tweetCorpus_LDA <- before_corpus[-toRemove]
+topic1TweetsText <- as.list(tweetCorpus_LDA[topic1tweets])
+sampleTweets <- sample(topic1TweetsText,5)
+# lapply(sampleTweets, function (x) {x[1]$content}) It didn't work
+```
+
+

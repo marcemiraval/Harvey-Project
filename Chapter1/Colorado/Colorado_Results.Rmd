@@ -1,0 +1,790 @@
+---
+title: "Colorado"
+author: "Marcela Suárez"
+date: "August 7, 2019"
+output: html_document
+---
+<br>
+
+
+This document presents the results obtained for Colorado.  
+
+<br>
+
+## **Analysis with the whole dataset**
+
+#### **A general  overview of the dataset**
+
+```{r import_data, echo=FALSE, message=FALSE}
+
+library(tidyverse) 
+colorado <- read_csv("ColoradoFloodOriginal.csv") # Loading data into R
+
+ # Create a subset with the variables to be used
+library(lubridate) # For dates
+colorado <- colorado %>% 
+  mutate(date = ymd_hms(colorado$created_at, tz='America/Denver')) %>% # Mountain Daylight Time. Time zone in Colorado (GMT-6)
+  select(lat = latitude, 
+         lon = longitude, 
+         date = date, 
+         state = c_state,
+         text = t_text,
+         user = u_name,
+         u_profile = u_description)
+
+str(colorado) # shows the structure of the dataframe
+```
+
+Tweets were collected from `r min(colorado$date)` to `r max(colorado$date)`  
+
+<br>
+
+
+####  **Cleaning dataset**
+
+* *Removing retweets:*
+```{r remove_retweets, echo=FALSE, message=FALSE}
+
+library(tidytext)
+library(stringr)
+
+colorado <- colorado %>% 
+  filter(!str_detect(text, "^RT")) %>% 
+  filter(!str_detect(text, "#TweetMyJobs")) %>% 
+  filter(!str_detect(text, "#GJCO")) %>% 
+  filter(!str_detect(text, "#Job")) %>% 
+  filter(!str_detect(text, "I'm")) # There will remain some retuits since those will be commented retweets (actually adding some info)
+```
+    From the original dataset containing 5915 tweets, only 5846 were retained.  
+
+* *Removing tweets sent by bots:*
+```{r remove_bots, echo=FALSE, message=FALSE}
+colorado <- colorado %>% 
+  filter(!str_detect(u_profile, "TwitZip")) %>% 
+  filter(!str_detect(u_profile, "TMJ-COB PM Jobs")) %>% 
+  filter(!str_detect(u_profile, "JobsDirectUSA.com")) %>% 
+  filter(!str_detect(u_profile, "Whole Foods")) %>% 
+  filter(!str_detect(u_profile, "Superpages Colorado"))
+
+```
+    Tweets sent by [TwitZIP](http://twitzip.com/), a bot service to discover local neighborhood news, were removed. After this process 4916 were retained. Other three bot accounts *("TMJ-COB PM Jobs", "JobsDirectUSA.com", "Whole Foods")* were detected and tweets were removed. A total of 4158 tweets were retained.
+    
+* *Removing urls, usernames, punctuation and numbers:*
+```{r clean_tweets, echo=FALSE, message=FALSE}
+
+colo_clean <- colorado %>% 
+   mutate(text = str_remove_all(text, 'http[^ ]+'), #Finally removing urls in a nice way
+          text = str_remove_all(text, '@[^ ]+'), # Removing usernames
+          text = str_remove_all(text, "[:punct:]"), # Removing puntuation
+          text = str_remove_all(text, "[:digit:]"), # Removing numbers
+          text = str_remove_all(text, "|")) 
+```
+    All references to usernames, urls and punctuation and numbers were removed from each tweet in order to prepare the dataset for tokenization.
+
+
+
+```{r tweets distribution, echo=FALSE, message=FALSE}
+library(scales)
+gen_hist <- ggplot(colo_clean, aes(x = colo_clean$date)) +
+  geom_histogram(aes(y = ..density..), colour = "#878787", fill = "white", binwidth = 3600) +
+  geom_density(alpha=.2, colour = "#35978f", fill="#35978f") +# Overlay with transparent density plot
+  scale_x_datetime(name = "Date", breaks = date_breaks("2 day"),
+                   labels = date_format("%m/%d"), expand = c(0.01,0),
+                   limits = c(
+                     as.POSIXct(min(colo_clean$date)),
+                     as.POSIXct(max(colo_clean$date))
+                   )) + scale_y_continuous(name = "Density") +
+  ggtitle("")   
+
+gen_hist
+
+```
+
+
+```{r days_asfactor, echo=FALSE, message=FALSE}
+
+colo_clean <- colo_clean %>% 
+  mutate(day = as.factor(day(date)))
+
+
+sep15_count <- colo_clean %>% 
+  filter(day == 15) %>% 
+  nrow()
+```
+
+Notice that there were only 5 observations on September 15 and only 131 on September 15.
+
+<br>
+
+
+####  **Temporal stages**
+
+Four stages were defined:
+
+```{r define_temporal_stages, echo=FALSE, message=FALSE}
+
+colo_clean <- colo_clean %>%  # The way to define them in a tidyway
+  mutate(stage = ifelse(date <= "2013-09-11 00:00:00 MDT", "preflood", 
+                        ifelse(date <= "2013-09-16 00:00:00 MDT", "flood",
+                               ifelse(date <= "2013-09-23 00:00:00 MDT", "immediate_aftermath", "postflood")))) %>%
+  mutate(stage = factor(stage, levels = unique(stage))) %>% # Turning stages into factors to use them for plotting later
+  mutate(stage = factor(stage,levels(stage)[c(3, 4, 2, 1)])) # To plot in an specific order
+
+```
+
+* *Preflood*: From `r min(colorado$date)` to 2013-09-11 00:00:00.
+* *Flood*: From 2013-09-11 00:00:00 to 2013-09-16 00:00:00.
+* *Immediate Aftermath*: From 2013-09-16 00:00:00 to 2013-09-23 00:00:00.
+* *Postflood*: From 2013-09-23 00:00:00 to `r max(colorado$date)`.
+
+
+<br>
+
+
+
+####  **Most common words**
+
+A quick view of the most common words in the whole dataset: 
+
+```{r one-token-per-document-per-row, echo=FALSE, message=FALSE}
+
+colo_tidy <- colo_clean %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) # remove stopwords
+
+colo_tidy %>% 
+  count(word, sort = TRUE) # Count words
+```
+
+Since **"boulder"** is the most common word and is going ot have a big effect in our topic modelling, it was removed from the dataset. The following five terms *("boulderflood", "colorado", "coflood", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+                                 
+                                 
+```{r remove_words, echo=FALSE, message=FALSE}
+
+#keywords <- c("boulder", "boulderflood", "colorado", "coflood", "cowx", "flood", "amp")
+keywords <- c("")
+colo_tidy <- colo_clean %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) %>%  # remove stopwords
+  filter(!word %in% keywords) # Next two candidates to be removed are Im and boulderflood. TO CHECK LATER!
+
+colo_tidy %>% 
+  count(word, sort = TRUE) # Count words
+```
+
+<br>
+
+The statistic **tf-idf** was computed in order to identify which words are important in each of the flood stages. It measures how important a word is to a document in a collection (or corpus) of documents, in our case, it measures how important a word is to a tweet in a collection of tweets. In this case the collection of tweets was the set of tweets belonging to each stage.
+
+```{r explore_tf_idf, echo=FALSE, message=FALSE}
+
+colo_tf_idf <- colo_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(10) %>% 
+  ungroup 
+
+colo_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) %>% #reordering by tf_idf
+  ggplot(aes(word, tf_idf, fill = stage)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~stage, scales = "free", ncol = 2)+
+  scale_x_reordered() +
+  coord_flip() +
+  theme(strip.text=element_text(size=11)) +
+  labs(x = NULL, y = "tf-idf",
+       title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
+       subtitle = "Words importance within tweets sent during each stage")
+
+
+```
+
+<br>
+
+
+
+####  **Topic Modeling**
+
+After playing with different numbers, I decided to train a topic model with 4 topics. From 5 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+
+```{r topic_modeling, echo=FALSE, message=FALSE}
+library(stm) #fast compared to other implementations of topic models. Base don C++
+library(quanteda)
+
+colo_dfm <- colo_tidy %>%
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Let's train oir topic model
+
+topic_model <- stm(colo_dfm, K = 6, init.type = "Spectral") # unsupervised 
+summary(topic_model)
+```
+
+The probabilities that each word is generated from each topic are shown below:
+
+```{r beta, echo=FALSE, message=FALSE}
+td_beta <- tidy(topic_model) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta %>% 
+  group_by(topic) %>% 
+  top_n(10, beta) %>% 
+  ungroup %>% 
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+From this, we can't demonstrate yet a clear association of these topics with the four stages of the disaster.
+
+On the other hand, besides estimating each topic as a mixture of words, LDA also models each document (tweet in our case) as a mixture of topics. We can examine the per-document-per-topic probabilities, called the "gamma probability". So, looking at the probability that each document (tweet) is generated from each topic:
+
+
+```{r gamma, echo=FALSE, message=FALSE}
+td_gamma <- tidy(topic_model, matrix = "gamma",                    
+                 document_names = rownames(colo_dfm))
+
+heat <- td_gamma %>% 
+  rename(text = document) %>% 
+  left_join(colo_clean, by = "text") %>% 
+  select(text, topic, gamma, stage, day)
+```
+
+```{r gamma_plot, echo=FALSE, message=FALSE, eval = FALSE}
+
+ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 2) +
+  labs(title = "Distribution of tweet probabilities for each topic",
+       subtitle = "Each topic is associated with...",
+       y = "Number of tweets", x = expression(gamma))
+
+
+# x- axis values correspond to the estimated proportion of words from tweets that are generated from each topic.
+# From the plot above, we can see that more probably each tweet is associated with a single topic. Gamma probabilities tell us which topics are coming from which documents (tweets). I don't think that at the end this plot is very meaningful.
+
+```
+
+```{r gamma_heatplot, echo=FALSE, message=FALSE}
+
+library(RColorBrewer)
+ggplot(heat, aes(day, topic )) +
+  geom_tile(aes(fill = gamma), color = "white") +
+  scale_colour_brewer(palette = "Greens", name = "Gamma") +
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Gamma")
+```
+
+
+
+
+
+<br>
+
+
+
+## **Analysis with a subset of the data**
+
+Now I will repeat the same analysis but considering tweets sent from what should be the "affected area" (by using spatial clustering and by subseting by affected counties).
+
+Before doing so, the data was first projected in North America Lambert Conformal Conic.
+
+```{r getting_spatial, echo=FALSE, message=FALSE}
+
+library(sf)
+
+# Store tweets as simple features and project data
+colo_sf_p <- colo_clean %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+
+colo_sf <- colo_sf_p %>% # set WGS84 as original datum
+  st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 +
+               lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
+               units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
+
+st_crs(colo_sf) # Retrieve current coord ref system: EPSG: 4326 WGS84
+
+```
+
+<br>
+
+####  **Subsetting by Spatial Clustering**
+
+In order to identify tweets sent from the afected area, a hierarchical implementation of dbscan was used **(hdscan)**, considering a minimum of 350 tweets per cluster.
+
+```{r spatial_clusters, echo=FALSE, message=FALSE}
+
+library(dbscan)
+library(leaflet)
+library(htmltools)
+
+
+set.seed(123)
+
+clusters <- hdbscan(colo_sf %>%
+                      st_coordinates(), #This rounds coordinates
+                    minPts = 550)
+
+colo_clusters <- colo_sf %>% 
+  mutate(cluster = clusters$cluster)
+
+## Plotting spatial cluster results
+
+colo_clusters <- colo_clusters %>% # Need to reproject in WGS84 datum. long lat format.
+  st_transform(crs = 4326)
+
+colo_clusters$cluster <- as.factor(colo_clusters$cluster) #Clusters as factors for coloring
+pal <- colorFactor(c("#636363", "red", "Blue"), domain = c("0", "1", "2"))
+
+# #1. or Red cluster has 608 tweets. Denver
+# #2. or Blue cluster has 1998 tweets. Boulder
+# 2219/4840 tweets were classified as outliers.
+```
+
+```{r map_clusters, echo=FALSE, message=FALSE}
+
+coloMap <- leaflet(colo_clusters) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(weight = 3, 
+             radius=40,
+             color= ~pal(cluster), 
+             stroke = TRUE, 
+             fillOpacity = 0.5,
+             popup = ~htmlEscape(cluster))%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+coloMap
+
+```
+
+
+
+#####  **Most common words (Within Spatial Clusters)**
+
+A quick view of the most common words in the whole dataset: 
+
+```{r data_subsets_tidy, echo=FALSE, message=FALSE}
+
+#This is mainly to remove geometry to make computation faster
+
+clusters_df <- colo_clusters %>% 
+  filter(cluster == 1 | cluster == 2) %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  st_set_geometry(NULL)
+
+```
+
+```{r one-token-per-document-per-row-clusters, echo=FALSE, message=FALSE}
+
+clusters_tidy <- clusters_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words)  # remove stopwords
+  
+clusters_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+                                 
+                                 
+```{r remove_words_clusters, echo=FALSE, message=FALSE}
+
+keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood")
+#keywords_clusters <- c("")
+
+
+clusters_tidy <- clusters_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) %>%   # remove stopwords
+  filter(!word %in% keywords_clusters) 
+
+clusters_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+```{r explore_tf_idf_clusters, echo=FALSE, message=FALSE}
+
+clusters_tf_idf <- clusters_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(9) %>% 
+  ungroup 
+
+clusters_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) %>% #reordering by tf_idf
+  ggplot(aes(word, tf_idf, fill = stage)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~stage, scales = "free", ncol = 2)+
+  scale_x_reordered() +
+  coord_flip() +
+  theme(strip.text=element_text(size=11)) +
+  labs(x = NULL, y = "tf-idf",
+       title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
+       subtitle = "Words importance within tweets sent during each stage")
+
+```
+
+<br>
+
+
+
+#####  **Topic Modeling**
+
+Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+
+```{r topic_modeling_clusters, echo=FALSE, message=FALSE}
+
+clusters_dfm <- clusters_tidy %>%
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Let's train oir topic model
+
+topic_model_clusters <- stm(clusters_dfm, K = 9, init.type = "Spectral") # unsupervised 
+summary(topic_model_clusters)
+```
+
+
+```{r beta_clusters, echo=FALSE, message=FALSE}
+td_beta_clusters <- tidy(topic_model_clusters) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta_clusters %>% 
+  group_by(topic) %>% 
+  top_n(10, beta) %>% 
+  ungroup %>% 
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+
+```{r gamma_clusters, echo=FALSE, message=FALSE}
+td_gamma_clusters <- tidy(topic_model_clusters, matrix = "gamma",                    
+                 document_names = rownames(clusters_dfm))
+
+heat_clusters <- td_gamma_clusters %>% 
+  rename(text = document) %>% 
+  left_join(colo_clean, by = "text") %>% 
+  select(text, topic, gamma, stage, day)
+```
+
+```{r gammaplot_clusters, echo=FALSE, message=FALSE}
+ggplot(td_gamma_clusters, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 2) +
+  labs(title = "Distribution of document probabilities for each topic",
+       subtitle = "Each topic is associated with 1-3 stages",
+       y = "Number of stages", x = expression(gamma))
+
+```
+
+```{r gammaclusters_heatplot, echo=FALSE, message=FALSE}
+
+library(RColorBrewer)
+ggplot(heat_clusters, aes(day, topic )) +
+  geom_tile(aes(fill = gamma), color = "white") +
+  scale_colour_brewer(palette = "Greens", name = "Gamma") +
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Gamma")
+```
+
+
+<br>
+
+####  **Subsetting by Affected Counties**
+
+
+```{r subset_by_county, echo=FALSE, message=FALSE}
+library(tigris) # Loading tigris dataset/ Census
+library(rgeos) #  rgeos required for finding out which hole belongs to which exterior ring
+library(sf)
+
+# Data to create basemap
+counties <- counties("Colorado", cb = FALSE, resolution = "500k")
+counties_sf <- st_as_sf(counties)
+affected_counties <- counties_sf %>% 
+  filter(NAME == "Arapahoe" | NAME == "Boulder" | NAME == "Denver"|
+           NAME == "El Paso" | NAME ==  "Jefferson" | NAME ==  "Larimer" |
+           NAME == "Logan" | NAME ==  "Morgan" | NAME ==  "Weld")
+
+st_crs(affected_counties)
+
+```
+
+```{r subset_projection, echo=FALSE, message=FALSE}
+
+affected_counties_p <- st_transform(affected_counties, 4326)
+
+st_crs(affected_counties_p)
+
+
+```
+
+
+```{r point_in_polygon, echo=FALSE, message=FALSE}
+tweet_in_county <- st_join(colo_sf_p, affected_counties_p) %>% 
+  select(county_name = NAME,
+         date = date,
+         state = state,
+         text = text,
+         user = user,
+         u_profile = u_profile,
+         stage = stage,
+         geometry = geometry) %>% 
+  filter(!is.na(county_name))
+
+```
+
+```{r point_in_polygon_proj, echo=FALSE, message=FALSE}
+
+tweet_in_county_p <- tweet_in_county %>% st_transform(crs ="+proj=lcc +lat_1=20 + lat_2=60 + lat_0=40 +
+               lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +
+               units=m no_defs") # Projected in North_America_Lambert_Conformal_Conic
+
+st_crs(tweet_in_county_p)
+```
+
+```{r point_in_polygon_plot, echo=FALSE, message=FALSE, eval= FALSE}
+
+TweetInCounty_Map <- leaflet(tweet_in_county_p) %>% # Interactive map to see resulting clusters
+  addTiles()  %>%
+  addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>% 
+  addCircles(tweet_in_county_p,
+             weight = 3, 
+             radius=40,
+             color= "Blue", 
+             stroke = TRUE, 
+             fillOpacity = 0.5)%>% 
+  setView(lng = -105, lat = 40, zoom = 8.5)
+
+TweetInCounty_Map
+
+```
+
+
+
+#####  **Most common words (Within Affected Counties)**
+
+A quick view of the most common words in the whole dataset: 
+
+```{r data_subsets_tidy2, echo=FALSE, message=FALSE}
+
+#This is mainly to remove geometry to make computation faster
+
+tweet_in_county_df <- tweet_in_county_p %>% 
+  mutate(tweet = text) %>% # To keep a column with the original tweet
+  st_set_geometry(NULL)
+
+```
+
+
+```{r one-token-per-document-per-row-clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_tidy <- tweet_in_county_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words)  # remove stopwords
+  
+tweet_in_county_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+Again, since **"boulder"** is the most common word and is going to have a big effect in our topic modelling, it was removed from the dataset. The following four terms *("boulderflood", "colorado", "cowx", "flood")* were also excluded because they were so common and used neutrally in all four stages. After excluding these six terms, the new list of common words looks as follows:
+                                 
+                                 
+```{r remove_words_clusters2, echo=FALSE, message=FALSE}
+
+#keywords_clusters <- c("boulder", "boulderflood", "colorado", "cowx", "flood", "coflood", "amp", "$")
+keywords_clusters <- c("")
+
+tweet_in_county_tidy <- tweet_in_county_df %>% 
+  unnest_tokens(word, text, token = "tweets") %>% # add a row for each token (word) and repeat the other information
+  anti_join(stop_words) %>%   # remove stopwords
+  filter(!word %in% keywords_clusters) 
+
+tweet_in_county_tidy %>% 
+  count(word, sort = TRUE) # Count words
+
+```
+
+
+```{r explore_tf_idf_clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_tf_idf <- tweet_in_county_tidy %>% 
+  count(stage, word, sort = TRUE) %>% 
+  bind_tf_idf(word, stage, n) %>%
+  arrange(-tf_idf) %>%
+  group_by(stage) %>% 
+  top_n(9) %>% 
+  ungroup 
+
+tweet_in_county_tf_idf %>% 
+  mutate(word = reorder_within(word, tf_idf, stage)) %>% #reordering by tf_idf
+  ggplot(aes(word, tf_idf, fill = stage)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~stage, scales = "free", ncol = 2)+
+  scale_x_reordered() +
+  coord_flip() +
+  theme(strip.text=element_text(size=11)) +
+  labs(x = NULL, y = "tf-idf",
+       title = "Highest tf-idf words in tweets during the different stages of Colorado Flood",
+       subtitle = "Words importance within tweets sent during each stage")
+
+```
+
+<br>
+
+
+
+#####  **Topic Modeling**
+
+Again, after playing with different numbers, I decided to train a topic model with 5 topics. From 6 on, topics started to look very similar (with the same bag of words). Here is a summary of the results after this process: 
+
+```{r topic_modeling_clusters2, echo=FALSE, message=FALSE}
+
+tweet_in_county_dfm <- tweet_in_county_tidy %>%
+  count(tweet, word, sort = TRUE) %>% 
+  cast_dfm(tweet, word, n) # 4 documents (4 stages). Quanteda document frecuency. Special implementation for document term matrix
+
+# Let's train oir topic model
+
+topic_model_tweet_in_county <- stm(tweet_in_county_dfm, K = 12, init.type = "Spectral") # unsupervised 
+summary(topic_model_tweet_in_county)
+```
+
+
+```{r beta_clusters2, echo=FALSE, message=FALSE}
+td_beta_tweet_in_county <- tidy(topic_model_tweet_in_county) # The beta matrix shows what are the words that contribute to each topic.
+
+td_beta_tweet_in_county %>% 
+  group_by(topic) %>% 
+  top_n(10, beta) %>% 
+  ungroup %>% 
+  mutate(topic = paste0("Topic ", topic),
+         term = reorder(term, beta)) %>% #reordering by tf_idf
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free_y") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = expression(beta),
+       title = "Highest word probabilities for each topic",
+       subtitle = "Different words are associated with different topics") # To see which words contribute the most to each topic
+```
+
+
+```{r gamma_clusters2, echo=FALSE, message=FALSE}
+td_gamma_tweet_in_county <- tidy(topic_model_tweet_in_county, matrix = "gamma",                    
+                 document_names = rownames(tweet_in_county_dfm))
+
+heat_tweet_in_county <- td_gamma_tweet_in_county %>% 
+  rename(text = document) %>% 
+  left_join(colo_clean, by = "text") %>% 
+  select(text, topic, gamma, day)
+```
+
+```{r gammaplot_clusters2, echo=FALSE, message=FALSE}
+ggplot(td_gamma_tweet_in_county, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 2) +
+  labs(title = "Distribution of document probabilities for each topic",
+       subtitle = "Each topic is associated with 1-3 stages",
+       y = "Number of stages", x = expression(gamma))
+
+```
+
+```{r}
+
+# Assigning a topic to each tweet based on which one was had the maximum Gamma
+heat_county <- heat_tweet_in_county %>% 
+  group_by(text) %>% 
+  filter(gamma == max(gamma)) %>% 
+  ungroup()
+
+# Compute the total number of tweets belonging to each topic each day
+heat_county <- heat_county %>% 
+  group_by(day, topic) %>% 
+  add_count() %>% 
+  rename(total_topic_day = n) %>% 
+  ungroup()
+
+# Compute the total number of tweets per day
+heat_county <- heat_county %>% 
+  group_by(day) %>% 
+  add_count() %>% 
+  rename(total_tweets_day = n) %>% 
+  mutate(dens = total_topic_day/total_tweets_day)
+
+# Standarazing tweet density (total_topic_day). Computing Z-score values for total_topic_day
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+scaled_heat_county <- 
+  heat_county %>%
+  group_by(day) %>%
+  mutate(scaled_total_topic_day = scale_this(total_topic_day))
+
+```
+
+
+```{r gammaclusters2_heatplot, echo=FALSE, message=FALSE}
+#Assign color variables
+col1 = "#d8e1cf" 
+col2 = "#438484"
+
+
+library(RColorBrewer)
+ggplot(scaled_heat_county, aes(day, as.factor(topic))) +
+  geom_tile(aes(fill = scaled_total_topic_day), color = "white") +
+  scale_fill_gradient(low = col1, high = col2) +  
+  ylab("Topic") +
+  xlab("Flood day") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=12,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "")
+```
+
+

@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"Cluster":"Affected","PointCount":4},"geometry":{"type":"Polygon","coordinates":[[[-105.464152397,40.24711099],[-105.463720166,40.24754896],[-105.462899543,40.248880808],[-105.463775211,40.248709001],[-105.464152397,40.24711099]]]}}]}

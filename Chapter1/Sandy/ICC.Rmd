@@ -1,0 +1,453 @@
+---
+title: "Clustering Tweets about Hurricane Sandy"
+author: "Marcela Suarez"
+date: "March 28th 2017"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+## 1. Description of the dataset
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+setwd ("/home/marcela/Documents/ICC") # Define working directory
+Sandy <- read.csv("Shelton_et_al_Sandy.csv", header = TRUE, sep = ",") # Loading data into R.
+dim(Sandy) # How big is the dataset
+CleanSandy <- subset(Sandy, Sandy$text!="#Sandy bgz") #Delete rows containing just that text (This was identified during analysis)
+write.csv(CleanSandy, file = "CleanSandy.csv")
+dim(CleanSandy) # How big is the dataset
+```
+
+The dataset contains 140780 observations and 13 variables. The attributes of this dataset are the following:
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+names(Sandy) # List the variables in Sandy. 
+attach(Sandy) # Making the variables accesible by name within the R session
+# is.data.frame(Sandy) # Just checking data type
+```
+The dataset consists of the following attributes:
+
+`id` : Tweet ID
+
+`U_id` : User ID.
+
+`U_description`  : User description.
+
+`Latitude` and `Longitude` : Geographic coordinates from where the tweet was sent.
+
+`Type`: Between place name and location of the place.
+
+`Place_type`: Between city, admin, poi, neighborhood.
+
+`C_country`: Country name (Only USA included).
+
+`C_geoid`: Coordinates in military grid reference system.
+
+`Created_at`: Time and date of when the tweet was posted.
+
+`text`: Tweet. A message consisting of 140 characters.
+
+
+The attributes considered for this analysis are: text of the tweet, tweet identification, and the spatial and temporal reference ("Created_at", "latitude", "longitude"). We are considering here only geotagged tweets.
+
+An example of these tweets is given as follows:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+head(Sandy, n=1) # Taking a look to the tweets
+```
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+#install.packages("ggplot2", dependencies = TRUE)
+library("ggplot2") # Importing package for drawing nice plots.
+Sandy<-Sandy[order(created_at),]
+dates<-strptime(created_at, format="%Y-%m-%d %H:%M:%S")
+Sandy<-cbind(Sandy,dates)
+Sandy<-Sandy[order(as.character(dates)),]
+qplot(dates,
+      geom="histogram",
+      main = "") #the default works fine now. But I just have information of a week (8 days)
+```
+
+## 2. Exploring Term Frequency
+
+Cleaning up text:
+``````{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+#install.packages("tm", dependencies = TRUE)
+library("tm") # Importing package for text Mining
+#installed.packages("SnowballC")
+library("SnowballC")
+Sandy_list_raw <- Sandy$text # Extracting the text from the tweets in a vector
+Sandy_list <- iconv(Sandy_list_raw, to = "utf-8", sub="")
+Sandy_list <- tolower(Sandy_list)
+Sandy_list  <- gsub("@\\w+", "", Sandy_list) # remove at
+Sandy_list <- gsub("http\\w+", "", Sandy_list)  # remove links http
+for (j in seq(Sandy_list)){
+  Sandy_list[[j]] <- gsub("new york", "New_York", Sandy_list[[j]])
+  Sandy_list[[j]] <- gsub("new jersey", "New_Jersey", Sandy_list[[j]])
+  Sandy_list[[j]] <- gsub("east coast", "east_coast", Sandy_list[[j]])
+  Sandy_list[[j]] <- gsub("stay safe", "stay_safe", Sandy_list[[j]])
+}
+Sandy_corpus <- Corpus(VectorSource(Sandy_list)) # From here on we start constructing the lexical Corpus:
+Sandy_corpus <- tm_map(Sandy_corpus, removePunctuation)
+Sandy_corpus <- tm_map(Sandy_corpus, removeNumbers)
+Sandy_corpus <- tm_map(Sandy_corpus, stripWhitespace)
+Sandy_corpus <- tm_map(Sandy_corpus, stemDocument)
+Sandy_corpus <- tm_map(Sandy_corpus, removeWords, stopwords("english"))
+Sandy_corpus <- tm_map(Sandy_corpus, removeWords, c("http", "sandy", "fuck", "bitch", "shit", "frankenstorm", "will", "going","got","dont","still","like", "whi","just","flood", "get","cant", "rt","hurricanesandi", "can", "lol", "sandi", "hurrican"))
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "befor", replacement = "before")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "hous", replacement = "house")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "realli", replacement = "really")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "citi", replacement = "city")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "everyon", replacement = "everyone")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "peopl", replacement = "people")
+Sandy_corpus <- tm_map(Sandy_corpus, content_transformer(gsub), pattern = "apocalyps", replacement = "apocalypse")
+dtm <-  DocumentTermMatrix(Sandy_corpus,control = list(weighting =function(x)weightTfIdf(x, normalize =FALSE))) #Constructing the Term Document Matrix and applying some transformations
+dtm <- removeSparseTerms(dtm, 0.99)
+```
+
+Plotting most frequent words:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+termFreq <- colSums(as.matrix(dtm))
+head(termFreq)
+termFreq1 <- subset(termFreq, termFreq >= 20000)
+df1 <- data.frame(term = names(termFreq1), freq = termFreq1)
+ggplot(df1, aes(x=term, y=freq)) + geom_bar(stat="identity") + xlab("Terms") + ylab("Count") + coord_flip()
+findAssocs(dtm, "come", 0.8)
+```
+
+Most frequent words in a wordcloud:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+#install.packages("wordcloud", dependencies = TRUE)
+library("wordcloud") # Importing package to build the wordcloud
+library("RColorBrewer") # Importing package to get palettes for drawing nice plots.
+df2 <- data.frame(term = names(termFreq), freq = termFreq)
+p<-wordcloud(df2$term, df2$freq, scale=c(3,.3), max.words=20, random.order=FALSE, rot.per=.15, colors=brewer.pal(6, "Dark2"), font = 1, family = "serif")
+p <- p +
+  theme(
+    panel.background = element_rect(fill = "transparent", colour=NA) # bg of the panel
+    , plot.background = element_rect(fill = "transparent", colour = NA) # bg of the plot
+    , panel.grid.major = element_blank() # get rid of major grid
+    , panel.grid.minor = element_blank() # get rid of minor grid
+    , legend.background = element_rect(fill = "transparent",colour = NA) # get rid of legend bg
+    , legend.box.background = element_rect(fill = "transparent", colour = NA) # get rid of legend panel bg
+  )
+ggsave(file='marce.png', plot=p, width=8, height=8, bg = "transparent")
+
+```
+
+## Term Frequency during October 29
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+Oct29 <- subset(Sandy, (dates > "2012-10-29 02:00:00" & dates< "2012-10-30 02:00:00")) # "&" And. To fit both conditions.
+qplot(Oct29$dates,
+      geom="histogram",
+      main = "") 
+```
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+Oct29_list_raw <- Oct29$text # Extracting the text from the tweets in a vector
+Oct29_list <- iconv(Oct29_list_raw, to = "utf-8", sub="")
+Oct29_list <- tolower(Oct29_list)
+Oct29_list  <- gsub("@\\w+", "", Oct29_list) # remove at
+Oct29_list <- gsub("http\\w+", "", Oct29_list)  # remove links http
+for (j in seq(Oct29_list)){
+  Oct29_list[[j]] <- gsub("new york", "New_York", Oct29_list[[j]])
+  Oct29_list[[j]] <- gsub("new jersey", "New_Jersey", Oct29_list[[j]])
+  Oct29_list[[j]] <- gsub("east coast", "east_coast", Oct29_list[[j]])
+  Oct29_list[[j]] <- gsub("stay safe", "stay_safe", Oct29_list[[j]])
+}
+Oct29_corpus <- Corpus(VectorSource(Oct29_list)) # From here on we start constructing the lexical Corpus:
+Oct29_corpus <- tm_map(Oct29_corpus, removePunctuation)
+Oct29_corpus <- tm_map(Oct29_corpus, removeNumbers)
+Oct29_corpus <- tm_map(Oct29_corpus, stripWhitespace)
+Oct29_corpus <- tm_map(Oct29_corpus, stemDocument)
+Oct29_corpus <- tm_map(Oct29_corpus, removeWords, stopwords("english"))
+Oct29_corpus <- tm_map(Oct29_corpus, removeWords, c("http", "sandy", "fuck", "bitch", "shit", "frankenstorm", "will", "going","got","dont","still","like", "whi","just","flood", "get","cant", "rt","hurricanesandi", "can", "lol", "sandi", "hurrican"))
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "befor", replacement = "before")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "hous", replacement = "house")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "realli", replacement = "really")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "citi", replacement = "city")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "everyon", replacement = "everyone")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "peopl", replacement = "people")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "apocalyps", replacement = "apocalypse")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "staysaf", replacement = "staysafe")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "pleas", replacement = "please")
+Oct29_corpus <- tm_map(Oct29_corpus, content_transformer(gsub), pattern = "readi", replacement = "ready")
+dtm29 <-  DocumentTermMatrix(Oct29_corpus,control = list(weighting =function(x)weightTfIdf(x, normalize =FALSE))) #Constructing the Term Document Matrix and applying some transformations
+dtm29 <- removeSparseTerms(dtm29, 0.99)
+```
+
+Plotting most frequent words:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+termFreq29 <- colSums(as.matrix(dtm29))
+head(termFreq29)
+termFreq_29 <- subset(termFreq29, termFreq29 >= 12000)
+df29 <- data.frame(term = names(termFreq_29), freq = termFreq_29)
+ggplot(df29, aes(x=term, y=freq)) + geom_bar(stat="identity") + xlab("Terms") + ylab("Count") + coord_flip()
+findAssocs(dtm29, "come", 0.8)
+```
+
+Most frequent words in a wordcloud:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+#install.packages("wordcloud", dependencies = TRUE)
+library("wordcloud") # Importing package to build the wordcloud
+library("RColorBrewer") # Importing package to get palettes for drawing nice plots.
+df29 <- data.frame(term = names(termFreq29), freq = termFreq29)
+wordcloud(df29$term, df29$freq, scale=c(3,.3), max.words=20, random.order=FALSE, rot.per=.15, colors=brewer.pal(6, "Dark2"), font = 1, family = "serif")
+```
+
+## Term Frequency before October 29
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+before <- subset(Sandy, (dates < "2012-10-29 02:00:00")) 
+qplot(before$dates,
+      geom="histogram",
+      main = "") 
+```
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+before_list_raw <- before$text # Extracting the text from the tweets in a vector
+before_list <- iconv(before_list_raw, to = "utf-8", sub="")
+before_list <- tolower(before_list)
+before_list  <- gsub("@\\w+", "", before_list) # remove at
+before_list <- gsub("http\\w+", "", before_list)  # remove links http
+for (j in seq(before_list)){
+  before_list[[j]] <- gsub("new york", "New_York", before_list[[j]])
+  before_list[[j]] <- gsub("new jersey", "New_Jersey", before_list[[j]])
+  before_list[[j]] <- gsub("east coast", "east_coast", before_list[[j]])
+  before_list[[j]] <- gsub("stay safe", "stay_safe", before_list[[j]])
+}
+before_corpus <- Corpus(VectorSource(before_list)) # From here on we start constructing the lexical Corpus:
+before_corpus <- tm_map(before_corpus, removePunctuation)
+before_corpus <- tm_map(before_corpus, removeNumbers)
+before_corpus <- tm_map(before_corpus, stripWhitespace)
+before_corpus <- tm_map(before_corpus, stemDocument)
+before_corpus <- tm_map(before_corpus, removeWords, stopwords("english"))
+before_corpus <- tm_map(before_corpus, removeWords, c("http", "sandy", "fuck", "bitch", "shit", "frankenstorm", "will", "going","got","dont","still","like", "whi","just","flood", "get","cant", "rt","hurricanesandi", "can", "lol", "sandi", "hurrican"))
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "befor", replacement = "before")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "hous", replacement = "house")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "realli", replacement = "really")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "citi", replacement = "city")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "everyon", replacement = "everyone")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "peopl", replacement = "people")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "apocalyps", replacement = "apocalypse")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "staysaf", replacement = "staysafe")
+before_corpus <- tm_map(before_corpus, content_transformer(gsub), pattern = "pleas", replacement = "please")
+dtm_b <-  DocumentTermMatrix(before_corpus,control = list(weighting =function(x)weightTfIdf(x, normalize =FALSE))) #Constructing the Term Document Matrix and applying some transformations
+dtm_b <- removeSparseTerms(dtm_b, 0.99)
+```
+
+Plotting most frequent words:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+termFreq_b <- colSums(as.matrix(dtm_b))
+head(termFreq_b)
+termFreqb <- subset(termFreq_b, termFreq_b >= 5000)
+df_before <- data.frame(term = names(termFreqb), freq = termFreqb)
+ggplot(df_before, aes(x=term, y=freq)) + geom_bar(stat="identity") + xlab("Terms") + ylab("Count") + coord_flip()
+findAssocs(dtm_b, "come", 0.8)
+```
+
+Most frequent words in a wordcloud:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+df_before <- data.frame(term = names(termFreq_b), freq = termFreq_b)
+wordcloud(df_before$term, df_before$freq, scale=c(3,.3), max.words=20, random.order=FALSE, rot.per=.15, colors=brewer.pal(6, "Dark2"), font = 1, family = "serif")
+```
+
+## Term Frequency after October 29
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+after <- subset(Sandy, (dates > "2012-10-30 02:00:00")) # "&" And. To fit both conditions.
+qplot(after$dates,
+      geom="histogram",
+      main = "") 
+```
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+after_list_raw <- after$text # Extracting the text from the tweets in a vector
+after_list <- iconv(after_list_raw, to = "utf-8", sub="")
+after_list <- tolower(after_list)
+after_list  <- gsub("@\\w+", "", after_list) # remove at
+after_list <- gsub("http\\w+", "", after_list)  # remove links http
+for (j in seq(after_list)){
+  after_list[[j]] <- gsub("new york", "New_York", after_list[[j]])
+  after_list[[j]] <- gsub("new jersey", "New_Jersey", after_list[[j]])
+  after_list[[j]] <- gsub("east coast", "east_coast", after_list[[j]])
+  after_list[[j]] <- gsub("stay safe", "stay_safe", after_list[[j]])
+}
+after_corpus <- Corpus(VectorSource(after_list)) # From here on we start constructing the lexical Corpus:
+after_corpus <- tm_map(after_corpus, removePunctuation)
+after_corpus <- tm_map(after_corpus, removeNumbers)
+after_corpus <- tm_map(after_corpus, stripWhitespace)
+after_corpus <- tm_map(after_corpus, stemDocument)
+after_corpus <- tm_map(after_corpus, removeWords, stopwords("english"))
+after_corpus <- tm_map(after_corpus, removeWords, c("http", "sandy", "fuck", "bitch", "shit", "frankenstorm", "will", "going","got","dont","still","like", "whi","just","flood", "get","cant", "rt","hurricanesandi", "can", "lol", "sandi", "hurrican"))
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "befor", replacement = "before")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "hous", replacement = "house")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "realli", replacement = "really")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "citi", replacement = "city")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "everyon", replacement = "everyone")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "peopl", replacement = "people")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "apocalyps", replacement = "apocalypse")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "staysaf", replacement = "staysafe")
+after_corpus <- tm_map(after_corpus, content_transformer(gsub), pattern = "pleas", replacement = "please")
+dtm_after <-  DocumentTermMatrix(after_corpus,control = list(weighting =function(x)weightTfIdf(x, normalize =FALSE))) #Constructing the Term Document Matrix and applying some transformations
+dtm_after <- removeSparseTerms(dtm_after, 0.99)
+```
+
+Plotting most frequent words:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+termFreqAfter <- colSums(as.matrix(dtm_after))
+head(termFreqAfter)
+termFreq_After <- subset(termFreqAfter, termFreqAfter >= 5000)
+df_After <- data.frame(term = names(termFreq_After), freq = termFreq_After)
+ggplot(df_After, aes(x=term, y=freq)) + geom_bar(stat="identity") + xlab("Terms") + ylab("Count") + coord_flip()
+findAssocs(dtm_after, "come", 0.8)
+```
+
+Most frequent words in a wordcloud:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+df_After <- data.frame(term = names(termFreqAfter), freq = termFreqAfter)
+wordcloud(df_After$term, df_After$freq, scale=c(3,.3), max.words=20, random.order=FALSE, rot.per=.15, colors=brewer.pal(6, "Dark2"), font = 1, family = "serif")
+```
+
+
+...Wait, this is for finding associations
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+# install.packages("quanteda")
+# install.packages("RWeka")
+# library("quanteda")
+# library(RColorBrewer)
+# findAssocs(dtm, "new", 0.2)
+# findAssocs(dtm, "thank", 0.1)
+# BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+# tdm.bigram = TermDocumentMatrix(Sandy_corpus,control = list(tokenize = BigramTokenizer,stopwords =TRUE))
+# tdm.bigram <- removeSparseTerms(tdm.bigram, 0.99)
+# freq = sort(rowSums(as.matrix(tdm.bigram)),decreasing = TRUE)
+# freq.df = data.frame(word=names(freq), freq=freq)
+# head(freq.df, 300)
+# pal=brewer.pal(8,"Blues")
+# pal=pal[-(1:3)]
+# wordcloud(freq.df$word,freq.df$freq,max.words=100,random.order = F, colors=pal)
+```
+
+Clustering Tweets using cosine simmilarity:
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+# install.packages("lsa") ## CHECK AGAIN ALL WHAT i HAVE LAST TIME
+library("lsa") # To compute cosine metric
+# install.packages("cluster")
+library("cluster") # To use hclust function
+attributes(dtm)
+library("Matrix")
+dim(dtm)
+m = as.matrix(dtm) #Defining TermDocumentMatrix as matrix
+is.matrix(m)
+d <- cosine(m) # calculate cosine metric
+d <- as.dist(1-d) # convert to dissimilarity distances
+cosClus<-hclust(d)
+
+```
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+#install.packages("ggdendro")
+library(ggdendro)
+plot(cosClus)
+
+plot(cosClus, hang = -1, cex = 0.6)
+
+# Convert hclust into a dendrogram and plot
+hcd <- as.dendrogram(cosClus)
+# Default plot
+plot(hcd, type = "rectangle", ylab = "Height")
+#ggdendrogram(cosClus, rotate=TRUE, size=1)
+
+# Zoom in to the first dendrogram
+plot(hcd, xlim = c(1, 20), ylim = c(0,1))
+
+```
+
+```{r}
+# Build dendrogram object from hclust results
+dend <- as.dendrogram(cosClus)
+dend <- color_branches(dend, k = 5)
+dend <- color_labels(dend, k = 5)
+plot(dend, xlim = c(1, 21), ylim = c(0,1))
+```
+
+```{r}
+dend <- as.dendrogram(cosClus)
+dend_data <- dendro_data(dend, type = "rectangle")
+# What contains dend_data
+names(dend_data)
+# Extract data for line segments
+head(dend_data$segments)
+# Extract data for labels
+head(dend_data$labels)
+# Plot line segments and add labels
+p <- ggplot(dend_data$segments) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend))+
+  geom_text(data = dend_data$labels, aes(x, y, label = label),
+            hjust = 1, angle = 90, size = 3)+ xlim(1, 20)+
+  ylim(-0.25, 1)
+print(p)
+```
+
+
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+# install.packages("ggplot2")
+library("ggdendro")
+ggdendrogram(cosClus, rotate = TRUE, theme_dendro = TRUE)
+```
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+dendr    <- dendro_data(cosClus, type="rectangle") # convert for ggplot
+clust    <- cutree(cosClus,k=14)                    # find 2 clusters
+clust.df <- data.frame(label=names(clust), cluster=factor(clust))
+dendr[["labels"]] <- merge(dendr[["labels"]],clust.df, by="label")# dendr[["labels"]] has the labels, merge with clust.df based on label column
+
+# Split dendrogram into upper grey section and lower coloured section
+# cut <- 13    # Number of clusters
+# height <- unique(dendr$segments$y)[order(unique(dendr$segments$y), decreasing = TRUE)]
+# cut.height <- mean(c(height[cut], height[cut-1]))
+# dendr$segments$line <- ifelse(dendr$segments$y == dendr$segments$yend &
+#    dendr$segments$y > cut.height, 1, 20)
+# dendr$segments$line <- ifelse(dendr$segments$yend  > cut.height, 1, dendr$segments$line)
+
+ggplot() +
+  geom_segment(data = segment(dendr),aes(x=x, y=y, xend=xend, yend=yend)) +
+  geom_text(data=label(dendr), aes(x, y, label=label, hjust=0, color=cluster),
+           size=2) + 
+  coord_flip() + scale_y_reverse(expand=c(0.2, 0)) +
+  theme(axis.line.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_rect(fill="white"),
+        panel.grid=element_blank()) # plot the dendrogram; note use of color=cluster in geom_text(...)
+
+```
+
+
+
+
+Clustering Tweets (K-means)
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+# # library("fpc") # Flexible procedures for clustering. Will be used for plotting.
+# # library("NbClust")
+# m2 <- t(m) # transpose the matrix to cluster documents (tweets)
+# set.seed(122) # set a fixed random seed
+# kmeansResult <- kmeans(x = m2, centers = 22)
+# clusters <- kmeansResult$cluster
+# plotcluster(m2, kmeansResult$cluster)
+# 
+# rounding <- round(kmeansResult$centers, digits = 1)
+# for (i in 1:22) {
+# cat(paste("cluster ", i, ": ", sep = ""))
+# s <- sort(kmeansResult$centers[i, ], decreasing = T)
+# cat(names(s)[1:5], "\n") }
+```
+
+For cluster validation, the Silouette Coefficient will be computed.
+```{r,warning=FALSE, echo=FALSE, cache=FALSE, message=FALSE}
+# sil = silhouette (clusters, dist(Sandy_list))
+# plot(sil, main ="Silhouette plot - K-means")
+```
+
