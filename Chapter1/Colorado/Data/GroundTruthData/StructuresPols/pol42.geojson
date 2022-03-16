@@ -1,8 +1,0 @@
-{
-"type": "FeatureCollection",
-"name": "pol42",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "Cluster": "P", "PointCount": 7 }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -105.22254087, 40.027486124 ], [ -105.22137017599999, 40.028621127 ], [ -105.221330914, 40.028282054 ], [ -105.221277377, 40.027707414 ], [ -105.221295223, 40.027404033 ], [ -105.221734233, 40.027072098 ], [ -105.22254087, 40.027486124 ] ] ] } }
-]
-}
